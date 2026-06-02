@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Validate templates against the IR schema
+        run: npm run validate
+      - name: Build editor
+        run: npm run build
+      - name: Generate example HTML (codegen smoke test)
+        run: node src/cli.ts examples/design.json out

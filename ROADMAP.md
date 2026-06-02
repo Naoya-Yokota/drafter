@@ -1,0 +1,65 @@
+# Roadmap — toward pro-designer (Figma-level) parity
+
+Goal: everything a professional designer wants for **single-screen layout** can be
+done in Drafter, so its `design.json` is a complete, unambiguous visual spec for AI.
+
+Honest framing: full Figma parity is a long road (vector editing, components,
+prototyping, multiplayer, plugins). Drafter intentionally scopes to **one screen,
+no runtime behavior** — but within that scope we aim for parity. Below, ✅ done,
+🟡 partial, ⬜ planned.
+
+## Editing & canvas
+- ✅ Move / resize, alignment snapping + guides, zoom
+- ✅ Marquee multi-select, Ctrl-click, group move, align, distribute
+- ✅ Undo/redo, copy/paste/duplicate, group/ungroup, lock/hide, z-order
+- ✅ Numeric-expression inputs, double-click inline text edit, command palette
+- 🟡 Auto-layout (flex exists; needs hug/fill sizing, on-canvas padding handles)
+- ⬜ Rulers & draggable guides, pixel grid snap toggle, smart distance badges (Alt-measure)
+- ⬜ Rotate, flip, multi-handle resize (8 handles), constraints/pinning
+- ⬜ Nudge-to-reorder layers by drag, reparent by drag-into-frame
+
+## Styling
+- ✅ Fill (solid + gradient presets), color palette / recent / document colors / eyedropper
+- ✅ Border, radius, shadow, opacity, overflow (scroll), padding, blur(backdrop)
+- 🟡 Typography (size/weight/family/align/line-height/letter-spacing; needs text styles)
+- ⬜ Multiple fills/strokes, gradient editor (stops/angle), image fills & object-fit UI
+- ⬜ Blend modes, per-corner radius, stroke align
+
+## Components & systems
+- ⬜ **Components / instances** (define once, reuse; override props) — biggest gap
+- ⬜ **Design tokens / variables** (color, spacing, type scales) referenced by name
+- ⬜ Shared/text styles, variants (e.g. button states)
+
+## Vector & shapes
+- 🟡 Rectangle, divider, icon (emoji/glyph)
+- ⬜ Pen/vector paths, boolean ops, polygons/lines/arrows, SVG import
+
+## Assets & content
+- ✅ Image (URL), Embed (map/video/iframe), List, Badge, Avatar, ProgressBar
+- ⬜ Image upload / asset library, icon set (not just emoji)
+
+## Multi-screen / flow
+- ⬜ Multiple screens per project, screen list, links/prototyping between screens
+
+## Codegen & handoff
+- ✅ HTML codegen, live preview, HTML export
+- ✅ AI handoff pack (description + IR + HTML)
+- 🟡 Inspect/measure (canvas badges exist; needs a spec/measure mode)
+- ⬜ **React/TSX codegen**, design-token export, PNG/SVG export, copy-as-CSS
+
+## AI
+- ✅ Generate screen from prompt (BYOA claude) → IR
+- ✅ Comment-driven edit (BYOA claude) → IR
+- ⬜ Diff/approve UI for AI edits, selection-scoped AI, semantic auto-labeling
+
+## Distribution & OSS
+- ✅ MIT license, JSON Schema, AGENTS.md, CI, contributing/issue templates
+- ⬜ `npx drafter` (extract dev API into a standalone server), Tauri desktop build
+- ⬜ Template gallery with thumbnails, docs site, live demo
+
+## Suggested next milestones
+1. **Components + design tokens** — the highest-leverage parity gap; also makes IR far better for AI.
+2. **React/TSX codegen** — completes "design → real code".
+3. **Rulers/guides, distance badges, 8-handle resize, reparent-by-drag** — daily-driver polish.
+4. **Multi-screen + links** — from "one screen" to "a product".
+5. **AI diff/approve + selection-scoped edits** — make the AI loop trustworthy.

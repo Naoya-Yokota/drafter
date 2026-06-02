@@ -158,6 +158,43 @@ function aiApi(): Plugin {
           return send(400, { error: (e as Error).message });
         }
       });
+
+      // Generate a brand-new screen from a natural-language prompt.
+      server.middlewares.use("/api/ai-generate", async (req, res) => {
+        const send = (code: number, body: unknown) => {
+          res.statusCode = code;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(body));
+        };
+        if (req.method !== "POST") return send(405, { error: "POST only" });
+        try {
+          const raw = await readBody(req);
+          const { prompt: userPrompt, width = 1280, height = 832 } = JSON.parse(raw) as { prompt: string; width?: number; height?: number };
+          if (!userPrompt?.trim()) return send(400, { error: "プロンプトが空です" });
+
+          const prompt = [
+            "あなたはUI設計ツール『Drafter』の design.json (IR) を生成するアシスタントです。",
+            "design.json は1画面の絶対配置レイアウトです。形式は次の通り:",
+            '{ "version":"0.1", "name":string, "canvas":{"width":number,"height":number,"background":string},',
+            '  "root":{ "id":"screen","type":"Frame","frame":{"x":0,"y":0,"w":W,"h":H},"style":{"background":...},"children":[ ...nodes ] } }',
+            "各ノード: { id(一意), type, name?, frame:{x,y,w,h}, style?, props?, children? }",
+            "type: Frame,Text,Button,Image,Input,Rectangle,Link,Textarea,Checkbox,Switch,Select,Divider,Badge,Avatar,List,Accordion,NavBar,Embed,Icon,ProgressBar",
+            "props例: Text{text}, Button{label}, Input{placeholder}, Icon{text(絵文字)}, Badge{text}, List{items[]}, NavBar{title,items[]}, ProgressBar{value}, Embed{src}",
+            "style例: background,color,fontSize,fontWeight,textAlign(left|center|right),borderRadius,border,shadow,opacity,padding,overflow",
+            "規則: 子は親のframe内の相対座標。要素同士を重ねない。読みやすい余白。frameはキャンバス内に収める。idは全て一意。",
+            `キャンバスサイズ: ${width}×${height}。`,
+            "出力は design.json 全体のみ。説明やコードフェンスは一切付けず、純粋なJSONだけを返してください。",
+            "",
+            `作る画面: ${userPrompt}`,
+          ].join("\n");
+
+          const stdout = await runClaude(prompt);
+          const doc = parseDocument(extractJson(stdout));
+          return send(200, { doc });
+        } catch (e) {
+          return send(400, { error: (e as Error).message });
+        }
+      });
     },
   };
 }

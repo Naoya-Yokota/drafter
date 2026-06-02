@@ -36,3 +36,15 @@ export async function aiResolve(doc: Document, nodeId: string): Promise<Document
   if (!res.ok) throw new Error(body.error ?? `AI resolve failed (${res.status})`);
   return body.doc as Document;
 }
+
+/** Generate a brand-new screen from a natural-language prompt (headless claude). */
+export async function aiGenerate(prompt: string, width: number, height: number): Promise<Document> {
+  const res = await fetch("/api/ai-generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, width, height }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? `AI generate failed (${res.status})`);
+  return body.doc as Document;
+}

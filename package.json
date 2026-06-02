@@ -1,17 +1,24 @@
 {
   "name": "drafter",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "GUI layout designer that compiles to code (HTML first, Unity/mobile later). IR-centric, AI-friendly, OSS.",
+  "description": "IR-centric UI design tool. Lay out any single screen in a GUI, compile it to code (HTML now), and hand the design.json to AI as a precise visual spec.",
+  "keywords": ["design-tool", "ui-design", "wireframe", "figma-alternative", "low-code", "codegen", "html", "ai", "design-to-code", "intermediate-representation"],
   "license": "MIT",
+  "author": "Naoya Yokota",
+  "repository": { "type": "git", "url": "https://github.com/naoya-yokota/drafter.git" },
+  "homepage": "https://github.com/naoya-yokota/drafter#readme",
+  "bugs": { "url": "https://github.com/naoya-yokota/drafter/issues" },
   "scripts": {
-    "gen": "node src/cli.ts",
-    "gen:example": "node src/cli.ts examples/design.json out",
-    "check": "node src/cli.ts examples/design.json out --check",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "validate": "node scripts/validate-templates.mjs",
+    "gen": "node src/cli.ts",
+    "gen:example": "node src/cli.ts examples/design.json out",
+    "check": "node src/cli.ts examples/design.json out --check"
   },
   "dependencies": {
     "react": "^18.3.1",

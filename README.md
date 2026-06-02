@@ -1,74 +1,78 @@
-# Drafter (working name)
+# Drafter
 
-GUIで画面レイアウトを設計し、コード（まずHTML、将来 Unity / モバイル）へコンパイルするツール。
-AIによる生成・GUIでの微調整・コメント駆動の修正を、すべて**1つの中間表現(IR)**を中心に統一する。
+**An IR-centric UI design tool.** Lay out any single screen in a GUI, compile it
+to code (HTML today), and hand the `design.json` to an AI as a precise visual
+spec. Designed so that **humans, the GUI, and AI all edit one source of truth.**
 
-> AI ⇄ GUI ⇄ コード を行き来できる。AIは各自の Claude Code / Codex（持ち込み）で動かす想定なので、
-> プロジェクト運営側のAI費用は **$0**。
-
-## 中心思想：すべては IR (`design.json`) を介する
+> GUI で1画面を作り込み → コードへコンパイル → `design.json` を「曖昧さのない視覚仕様」として AI に渡す。
+> AI ⇄ GUI ⇄ コード を、すべて **1つの中間表現 (IR)** を中心に往復できます。
 
 ```
-        design.json  ← 唯一の真実 (Single Source of Truth, JSON)
-         ↑    ↑     ↑
-     GUI編集  AI生成/修正  コード生成
-    (双方向)  (双方向)    (一方向: IR→コード)
+            ┌─────────────────────────────┐
+   GUI編集 ─┤                             │
+            │      design.json (IR)       ├─→ codegen ─→ HTML (将来: React/TSX 等)
+   AI生成/  ┤   ＝唯一の真実 (zod + JSON   │
+   修正  ───┤      Schema で検証)          │
+            │                             │
+   手書き  ─┤                             │
+            └─────────────────────────────┘
 ```
 
-GUIもAIも**コードを直接いじらない**。全員が `design.json` を読み書きし、コードはそこから生成する。
-これにより「AI作成→GUI微調整→コード化」「人間作成→GUI微調整→コード化」が**同じ1本の流れ**になる。
+GUI も AI も**コードを直接いじらず**、全員が `design.json` を読み書きします。コードはそこから一方向に生成。
 
-- 保存形式は **JSON**（zodで検証）。diff / Git / Claude Code の文字列編集が全部タダで効く。
-- コメントは**ノードの中**(`node.comments[]`)に持つ。コメント駆動のAI修正の燃料で、Gitで追える。
-
-## 現状（Phase 1 — GUIエディタが動く）
-
-**コア（Phase 0）**
-
-- `src/ir/schema.ts` — IRスキーマ＋型＋検証（zod）。**プロジェクトの核**。
-- `src/codegen/html.ts` — IR → スタンドアロンHTML（絶対配置でGUIキャンバスを忠実に再現）。
-- `src/cli.ts` — `design.json` を検証し、未解決コメントを一覧し、HTMLを生成。
-- `examples/design.json` — ログイン画面のサンプル（コメント1件付き）。
-
-**Webエディタ（Phase 1, `editor/`）— AI不使用のGUI編集ループ**
-
-- `editor/components/Canvas.tsx` — `html.ts` と同じマッピングで忠実描画。クリック選択・ドラッグ移動・ハンドルでリサイズ → `frame` を直接更新。
-- `editor/components/Inspector.tsx` — 選択ノードの `frame`/`style`/`props` を編集。
-- `editor/components/Tree.tsx` — レイヤーツリー。`editor/components/Preview.tsx` — `generateHtml` の出力を iframe でライブ表示（**codegenそのもの＝AIを介さない**ことの証明）。
-- `vite.config.ts` の dev プラグイン `/api/design` — ディスク上の `design.json` を zod 検証して read/write。**GUI編集が実ファイル変更になり、git / Claude Code 連携がそのまま効く**。
-
-> 重要：GUIで直した内容は `design.json` → `codegen` で**そのままコードになる**。AIは一切通らない。
-> AIは Phase 2 で「コメントで自然言語修正したい時だけ」使うオプション機能。
-
-### 使い方
+## Quick start
 
 ```bash
 npm install
-
-# GUIエディタ（ドラッグ編集 → Ctrl+S で design.json 保存 → ライブHTMLプレビュー）
-npm run dev
-
-# CLI: IR → out/index.html を生成
-node src/cli.ts examples/design.json out
-node src/cli.ts examples/design.json --check  # 検証＋未解決コメント一覧のみ（生成しない）
+npm run dev        # GUIエディタ → http://localhost:5173
 ```
 
-生成HTMLは `<!-- DRAFTER:BEGIN -->` / `<!-- DRAFTER:END -->` で囲まれる。
-将来、マーカー外の手書きコードを壊さず再生成できるようにするため。
+```bash
+# CLI: IR → out/index.html
+node src/cli.ts examples/design.json out
+node src/cli.ts examples/design.json out --check   # 検証＋未解決コメント一覧のみ
+```
 
-## ロードマップ
+## What it does
 
-- **Phase 0 ✅** IRスキーマ + HTML生成 + CLI + サンプル
-- **Phase 1 ✅** 独自Webエディタ（Vite + React）。ドラッグ移動/リサイズ・スナップ整列・選択・プロパティ編集・追加/削除・コピペ/複製・Undo/Redo・z順序・整列・ズーム・画面サイズ・実コンポーネント描画・flexオートレイアウト・HTML書き出し。豊富なコンポーネント（フォーム/表示/ナビ、Accordion・NavBarは生成HTMLで開閉動作）
-- **Phase 2 🚧** コメント機能 + 「AIで修正」ボタン。裏で `claude` をヘッドレス起動し `design.json` を更新（方向A: BYOA）。実装済み（要 `claude` CLI）。差分承認UIは今後
-- **Phase 3** MCPサーバ公開（方向B: Claude Code から `resolve_comments` 等を直接呼ぶ）。Unity / モバイル codegen を追加
+- **WYSIWYG キャンバス** — ドラッグ移動/リサイズ、整列スナップ＋ガイド、範囲(マーキー)選択、まとめて移動/整列/等間隔配置、ズーム、実コンポーネント描画。
+- **豊富な部品** — Frame / Text / Button / Image / Input / Rectangle / Link / Textarea / Checkbox / Switch / Select / Divider / Badge / Avatar / List / Accordion / NavBar / **Embed(地図/動画 iframe)** / Icon / ProgressBar。Accordion・NavBar は生成HTMLで実際に開閉。
+- **編集体験** — Undo/Redo、コピー/ペースト/複製、グループ化、ロック/非表示、z順序、整列ボタン、数式入力(`120+8`)、ダブルクリックでテキスト編集、コマンドパレット(Ctrl+K)。
+- **カラー** — パレット＋グラデ＋最近色＋ドキュメント色＋スポイト。
+- **flex オートレイアウト** — Frame を flex コンテナに。
+- **50 テンプレ** — 10カテゴリ × 5（ランディング/認証/ダッシュボード/料金/プロフィール/EC/地図/チャット/設定/メディア）。
+- **ライブHTMLプレビュー** — `generateHtml` の出力をリアルタイム表示（＝コード化にAIは不要）。
+- **AI（BYOA, 任意）** — 自分の `claude` CLI を裏で使う：
+  - **AIで生成** — プロンプトから新規 `design.json`。
+  - **AIで修正** — ノードにコメント→IRを更新。
+  - **AIパック書き出し** — 説明＋`design.json`＋HTMLを1ファイルに（下流AIへの最良のプロンプト）。
 
-## 設計上の約束
+## For AI agents / tooling
 
-- **codegen はプラグイン**：`IR → string` の関数の集まり。`codegen-unity` 等を同じIRから足せる。
-- **AIに送る量を最小化**：画面全体ではなく対象ノード＋周辺だけを渡す。これがコスト管理の肝。
-- **逆方向（コード→IR）は当面やらない**：IR→コードの一方向に割り切る。
+- IR の機械可読仕様: [`schema/design.schema.json`](schema/design.schema.json)（JSON Schema）
+- AI 向けガイド（IRの読み書き方）: [`AGENTS.md`](AGENTS.md)
+- IR の TypeScript / zod 定義: [`src/ir/schema.ts`](src/ir/schema.ts)
 
-## ライセンス
+## Architecture
 
-MIT
+- `src/ir/schema.ts` — IR（zod）。**プロジェクトの核**。
+- `src/codegen/html.ts` — `IR → HTML`（純粋関数、プラグイン構成）。
+- `src/cli.ts` — 検証＋生成 CLI。
+- `editor/` — Vite + React の GUI エディタ。
+- `schema/` — 公開 JSON Schema。
+
+設計の約束: **コード→IR の逆方向はやらない**（IRが唯一の真実）。codegen はプラグインなので、同じIRから React/TSX・Unity・モバイル等のターゲットを追加できます。
+
+## Status & roadmap
+
+Phase 0/1 完了：IR・HTML codegen・CLI・GUIエディタ・50テンプレ・AI(BYOA)。
+Figma 機能パリティの計画は [`ROADMAP.md`](ROADMAP.md) を参照。
+
+## AI（BYOA）について
+
+「AIで生成 / 修正」は**あなた自身の `claude` CLI**をローカルで起動します（コストはあなた持ち＝BYOA）。
+未導入でも他の全機能はそのまま動きます。dev サーバの `/api/*` はローカル開発専用で、ファイル操作はプロジェクト内に限定しています。
+
+## License
+
+MIT — see [LICENSE](LICENSE).

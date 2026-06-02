@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/naoya-yokota/drafter/schema/design.schema.json",
+  "title": "Drafter Design IR",
+  "description": "A single-screen UI layout. The single source of truth that the GUI editor, AI agents, and all code generators read and write. Coordinates are absolute; child positions are relative to their parent.",
+  "type": "object",
+  "required": ["version", "canvas", "root"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": "0.1" },
+    "name": { "type": "string", "default": "Untitled" },
+    "canvas": { "$ref": "#/$defs/canvas" },
+    "root": { "$ref": "#/$defs/node" }
+  },
+  "$defs": {
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "number", "default": 1440 },
+        "height": { "type": "number", "default": 1024 },
+        "background": { "type": "string", "default": "#ffffff" }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "description": "Absolute box within the parent (x,y top-left; w,h size).",
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number" },
+        "h": { "type": "number" }
+      }
+    },
+    "nodeType": {
+      "enum": ["Frame", "Text", "Button", "Image", "Input", "Rectangle", "Link", "Textarea", "Checkbox", "Switch", "Select", "Divider", "Badge", "Avatar", "List", "Accordion", "NavBar", "Embed", "Icon", "ProgressBar"]
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "background": { "type": "string", "description": "Any CSS color or gradient." },
+        "color": { "type": "string" },
+        "fontSize": { "type": "number" },
+        "fontWeight": { "type": ["number", "string"] },
+        "fontFamily": { "type": "string" },
+        "textAlign": { "enum": ["left", "center", "right"] },
+        "borderRadius": { "type": "number" },
+        "border": { "type": "string" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "shadow": { "type": "string", "description": "CSS box-shadow." },
+        "overflow": { "enum": ["visible", "hidden", "auto", "scroll"] },
+        "padding": { "type": "number" },
+        "lineHeight": { "type": "number" },
+        "letterSpacing": { "type": "number" },
+        "backdrop": { "type": "string", "description": "CSS backdrop-filter." }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "description": "Optional flex auto-layout. When mode=flex, children flow and their x/y are ignored.",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["absolute", "flex"], "default": "absolute" },
+        "direction": { "enum": ["row", "column"] },
+        "gap": { "type": "number" },
+        "padding": { "type": "number" },
+        "align": { "enum": ["start", "center", "end", "stretch"] },
+        "justify": { "enum": ["start", "center", "end", "between"] }
+      }
+    },
+    "props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "description": "Text / Icon glyph / Badge / Link." },
+        "label": { "type": "string", "description": "Button / Checkbox / Switch." },
+        "src": { "type": "string", "description": "Image / Avatar / Embed (iframe URL)." },
+        "alt": { "type": "string" },
+        "placeholder": { "type": "string", "description": "Input / Textarea." },
+        "inputType": { "type": "string" },
+        "href": { "type": "string" },
+        "variant": { "type": "string" },
+        "checked": { "type": "boolean" },
+        "options": { "type": "array", "items": { "type": "string" }, "description": "Select." },
+        "items": { "type": "array", "items": { "type": "string" }, "description": "List / NavBar links." },
+        "title": { "type": "string", "description": "Accordion header / NavBar brand." },
+        "body": { "type": "string" },
+        "collapsible": { "type": "boolean" },
+        "value": { "type": "number", "description": "ProgressBar (0-100)." }
+      }
+    },
+    "comment": {
+      "type": "object",
+      "required": ["id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "author": { "enum": ["user", "ai"], "default": "user" },
+        "text": { "type": "string" },
+        "resolved": { "type": "boolean", "default": false },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "frame"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "Unique across the document." },
+        "type": { "$ref": "#/$defs/nodeType" },
+        "name": { "type": "string" },
+        "frame": { "$ref": "#/$defs/frame" },
+        "layout": { "$ref": "#/$defs/layout" },
+        "style": { "$ref": "#/$defs/style" },
+        "props": { "$ref": "#/$defs/props" },
+        "comments": { "type": "array", "items": { "$ref": "#/$defs/comment" } },
+        "locked": { "type": "boolean", "description": "Editor-only." },
+        "hidden": { "type": "boolean", "description": "Editor-only; skipped by codegen." },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/node" } }
+      }
+    }
+  }
+}

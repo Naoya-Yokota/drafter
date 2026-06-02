@@ -130,7 +130,10 @@ export interface Node {
   children?: Node[];
 }
 
-export const Node: z.ZodType<Node> = z.lazy(() =>
+// Input type is `unknown` because nested defaults (Comment, Layout) make the
+// schema's input differ from its output `Node` — this is the standard escape
+// hatch for recursive z.lazy schemas that contain z.default().
+export const Node: z.ZodType<Node, z.ZodTypeDef, unknown> = z.lazy(() =>
   z
     .object({
       id: z.string(),

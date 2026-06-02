@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import type { Document, Frame, Node, NodeType, Style } from "../src/ir/schema.ts";
 import { generateHtml } from "../src/codegen/html.ts";
-import { loadDesign, saveDesign, aiResolve } from "./api.ts";
+import { loadDesign, saveDesign, aiResolve, aiGenerate } from "./api.ts";
+import { buildAiPack } from "./aiexport.ts";
 import {
   patchNode,
   removeNode,
@@ -67,6 +68,8 @@ export function App() {
   const [showNew, setShowNew] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [genOpen, setGenOpen] = useState(false);
+  const [genText, setGenText] = useState("");
   const clipboard = useRef<Node[]>([]);
   const styleClipboard = useRef<Style | null>(null);
   const [hasStyleClip, setHasStyleClip] = useState(false);
@@ -509,18 +512,46 @@ export function App() {
     }
   }, [doc]);
 
-  const onExport = useCallback(() => {
-    if (!doc) return;
-    const html = generateHtml(doc);
-    const blob = new Blob([html], { type: "text/html" });
+  const download = useCallback((name: string, content: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${doc.name || "design"}.html`;
+    a.download = name;
     a.click();
     URL.revokeObjectURL(url);
+  }, []);
+
+  const onExport = useCallback(() => {
+    if (!doc) return;
+    download(`${doc.name || "design"}.html`, generateHtml(doc), "text/html");
     setStatus("HTMLを書き出しました。");
-  }, [doc]);
+  }, [doc, download]);
+
+  const onExportAiPack = useCallback(() => {
+    if (!doc) return;
+    download(`${doc.name || "design"}.drafter-ai.md`, buildAiPack(doc, generateHtml(doc)), "text/markdown");
+    setStatus("AI向けパック（説明＋IR＋HTML）を書き出しました。");
+  }, [doc, download]);
+
+  const onGenerate = useCallback(async () => {
+    if (!genText.trim() || !doc) return;
+    setBusy(true);
+    setGenOpen(false);
+    setStatus("AIが画面を生成中…（裏で claude を実行）");
+    try {
+      const generated = await aiGenerate(genText.trim(), doc.canvas.width, doc.canvas.height);
+      commit(() => generated);
+      setSelectedIds([]);
+      setDirty(true);
+      setStatus("AIが画面を生成しました（Ctrl+Zで取り消し可）。");
+      setGenText("");
+    } catch (e) {
+      setStatus(`AI生成に失敗: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [genText, doc, commit]);
 
   const onNewFromTemplate = useCallback(
     (templateId: string) => {
@@ -618,6 +649,8 @@ export function App() {
 
   const commands: Command[] = [
     ...PALETTE.flatMap((g) => g.types.map((t) => ({ id: `add-${t}`, label: `追加: ${t}`, hint: g.group, run: () => onAdd(t) }))),
+    { id: "ai-generate", label: "✨ AIで画面を生成", run: () => setGenOpen(true) },
+    { id: "ai-pack", label: "AI向けパックを書き出し", hint: "IR+HTML+説明", run: onExportAiPack },
     { id: "export", label: "HTMLを書き出し", run: onExport },
     { id: "save", label: "保存", hint: "Ctrl+S", run: onSave },
     { id: "group", label: "グループ化", hint: "Ctrl+G", run: onGroup },
@@ -636,6 +669,7 @@ export function App() {
           <button onClick={() => setShowNew((v) => !v)}>新規作成 ▾</button>
           {showNew && (
             <div className="dropdown palette templates" onPointerLeave={() => setShowNew(false)}>
+              <button className="gen-item" onClick={() => { setShowNew(false); setGenOpen(true); }}>✨ AIで生成…</button>
               <div className="dropdown-head">テンプレートから（{TEMPLATES.length}種）</div>
               {TEMPLATE_CATEGORIES.map((g) => (
                 <div key={g.category}>
@@ -701,11 +735,35 @@ export function App() {
           <button className={showCanvas ? "on" : ""} onClick={() => setPanels(!showCanvas, showPreview)}>編集</button>
           <button className={showPreview ? "on" : ""} onClick={() => setPanels(showCanvas, !showPreview)}>プレビュー</button>
         </div>
-        <button onClick={onExport}>HTML書き出し</button>
+        <button onClick={onExport}>HTML</button>
+        <button onClick={onExportAiPack} title="説明＋design.json＋HTML を1ファイルに。下流AIに渡す用">AIパック</button>
         <button className="primary" onClick={onSave}>
           {dirty ? "● 保存 (Ctrl+S)" : "保存済み"}
         </button>
       </header>
+
+      {genOpen && (
+        <div className="palette-overlay" onPointerDown={() => setGenOpen(false)}>
+          <div className="gen-modal" onPointerDown={(e) => e.stopPropagation()}>
+            <div className="gen-title">✨ AIで画面を生成</div>
+            <div className="gen-sub">作りたい1画面を自然言語で。裏で claude が design.json を生成します（{doc.canvas.width}×{doc.canvas.height}）。</div>
+            <textarea
+              autoFocus
+              className="gen-textarea"
+              placeholder="例: SaaSのランディングページ。ヒーロー見出し、サブコピー、CTAボタン2つ、下に3カラムの特徴。"
+              value={genText}
+              onChange={(e) => setGenText(e.target.value)}
+              onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") onGenerate(); }}
+            />
+            <div className="gen-actions">
+              <span className="hint" style={{ margin: 0 }}>未保存の内容は置き換わります</span>
+              <div style={{ flex: 1 }} />
+              <button onClick={() => setGenOpen(false)}>キャンセル</button>
+              <button className="primary" disabled={busy || !genText.trim()} onClick={onGenerate}>{busy ? "生成中…" : "生成 (Ctrl+Enter)"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="body">
         <aside className="left">
