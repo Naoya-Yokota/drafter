@@ -39,8 +39,10 @@ function styleToCss(style: Style | undefined, extra: Record<string, string>): st
     .join("; ");
 }
 
-function positionCss(node: Node): Record<string, string> {
+function positionCss(node: Node, parentFlex: boolean): Record<string, string> {
   const f = node.frame;
+  // Inside a flex parent the child flows; its x/y are ignored, size is a hint.
+  if (parentFlex) return { position: "relative", width: `${f.w}px`, height: `${f.h}px` };
   return {
     position: "absolute",
     left: `${f.x}px`,
@@ -50,34 +52,102 @@ function positionCss(node: Node): Record<string, string> {
   };
 }
 
-function renderNode(node: Node, depth: number): string {
+const FLEX_ALIGN: Record<string, string> = { start: "flex-start", center: "center", end: "flex-end", stretch: "stretch" };
+const FLEX_JUSTIFY: Record<string, string> = { start: "flex-start", center: "center", end: "flex-end", between: "space-between" };
+
+function flexContainerCss(layout: Node["layout"]): Record<string, string> {
+  if (!layout || layout.mode !== "flex") return {};
+  const out: Record<string, string> = {
+    display: "flex",
+    "flex-direction": layout.direction === "column" ? "column" : "row",
+  };
+  if (layout.gap != null) out["gap"] = `${layout.gap}px`;
+  if (layout.padding != null) out["padding"] = `${layout.padding}px`;
+  if (layout.align) out["align-items"] = FLEX_ALIGN[layout.align];
+  if (layout.justify) out["justify-content"] = FLEX_JUSTIFY[layout.justify];
+  return out;
+}
+
+function initials(name: string): string {
+  const t = name.trim();
+  if (!t) return "?";
+  const parts = t.split(/\s+/);
+  return (parts.length > 1 ? parts[0][0] + parts[1][0] : t.slice(0, 2)).toUpperCase();
+}
+
+function renderNode(node: Node, depth: number, parentFlex: boolean): string {
   const pad = "  ".repeat(depth);
-  const css = styleToCss(node.style, positionCss(node));
+  const flex = node.layout?.mode === "flex";
+  const css = styleToCss(node.style, { ...positionCss(node, parentFlex), ...flexContainerCss(node.layout) });
   const idAttr = ` id="${esc(node.id)}"`;
   const styleAttr = ` style="${esc(css)}"`;
+  const p = node.props ?? {};
   const childHtml = (node.children ?? [])
-    .map((c) => renderNode(c, depth + 1))
+    .filter((c) => !c.hidden)
+    .map((c) => renderNode(c, depth + 1, flex))
     .join("\n");
   const inner = childHtml ? `\n${childHtml}\n${pad}` : "";
 
   switch (node.type) {
     case "Button": {
-      const label = esc(node.props?.label ?? "");
+      const label = esc(p.label ?? "");
       return `${pad}<button${idAttr}${styleAttr}>${label}${inner}</button>`;
     }
     case "Text": {
-      const text = esc(node.props?.text ?? "");
+      const text = esc(p.text ?? "");
       return `${pad}<p${idAttr}${styleAttr}>${text}${inner}</p>`;
     }
     case "Image": {
-      const src = esc(node.props?.src ?? "");
-      const alt = esc(node.props?.alt ?? "");
-      return `${pad}<img${idAttr}${styleAttr} src="${src}" alt="${alt}" />`;
+      return `${pad}<img${idAttr}${styleAttr} src="${esc(p.src ?? "")}" alt="${esc(p.alt ?? "")}" />`;
     }
     case "Input": {
-      const ph = esc(node.props?.placeholder ?? "");
-      const t = esc(node.props?.inputType ?? "text");
-      return `${pad}<input${idAttr}${styleAttr} type="${t}" placeholder="${ph}" />`;
+      const t = esc(p.inputType ?? "text");
+      return `${pad}<input${idAttr}${styleAttr} type="${t}" placeholder="${esc(p.placeholder ?? "")}" />`;
+    }
+    case "Link": {
+      const text = esc(p.text ?? p.label ?? "リンク");
+      return `${pad}<a${idAttr}${styleAttr} href="${esc(p.href ?? "#")}">${text}${inner}</a>`;
+    }
+    case "Textarea": {
+      return `${pad}<textarea${idAttr}${styleAttr} placeholder="${esc(p.placeholder ?? "")}">${esc(p.body ?? "")}</textarea>`;
+    }
+    case "Checkbox": {
+      const checked = p.checked ? " checked" : "";
+      return `${pad}<label${idAttr}${styleAttr} class="drafter-check"><input type="checkbox"${checked} /><span>${esc(p.label ?? "")}</span></label>`;
+    }
+    case "Switch": {
+      const checked = p.checked ? " checked" : "";
+      const label = p.label ? `<span class="drafter-switch-text">${esc(p.label)}</span>` : "";
+      return `${pad}<label${idAttr}${styleAttr} class="drafter-switch"><input type="checkbox"${checked} /><span class="drafter-slider"></span>${label}</label>`;
+    }
+    case "Select": {
+      const opts = (p.options ?? []).map((o) => `<option>${esc(o)}</option>`).join("");
+      return `${pad}<select${idAttr}${styleAttr}>${opts}</select>`;
+    }
+    case "Divider": {
+      return `${pad}<div${idAttr}${styleAttr} class="drafter-divider"></div>`;
+    }
+    case "Badge": {
+      return `${pad}<span${idAttr}${styleAttr} class="drafter-badge">${esc(p.text ?? p.label ?? "")}</span>`;
+    }
+    case "Avatar": {
+      if (p.src) return `${pad}<img${idAttr}${styleAttr} class="drafter-avatar" src="${esc(p.src)}" alt="${esc(p.alt ?? "")}" />`;
+      return `${pad}<div${idAttr}${styleAttr} class="drafter-avatar">${esc(initials(p.text ?? p.label ?? node.name ?? ""))}</div>`;
+    }
+    case "List": {
+      const lis = (p.items ?? []).map((i) => `<li>${esc(i)}</li>`).join("");
+      return `${pad}<ul${idAttr}${styleAttr} class="drafter-list">${lis}</ul>`;
+    }
+    case "Accordion": {
+      const body = inner || esc(p.body ?? "");
+      return `${pad}<details${idAttr}${styleAttr} class="drafter-accordion"><summary>${esc(p.title ?? "詳細")}</summary><div class="drafter-acc-body">${body}</div></details>`;
+    }
+    case "NavBar": {
+      const items = (p.items ?? []).map((i) => `<a href="#">${esc(i)}</a>`).join("");
+      const toggleId = `nav-${esc(node.id)}`;
+      const burger = p.collapsible === false ? "" : `<input type="checkbox" id="${toggleId}" class="drafter-nav-toggle" /><label for="${toggleId}" class="drafter-nav-burger">☰</label>`;
+      const collapsible = p.collapsible === false ? "" : " drafter-nav-collapsible";
+      return `${pad}<nav${idAttr}${styleAttr} class="drafter-nav${collapsible}"><span class="drafter-nav-brand">${esc(p.title ?? "Menu")}</span>${burger}<div class="drafter-nav-links">${items}</div></nav>`;
     }
     case "Frame":
     case "Rectangle":
@@ -85,6 +155,36 @@ function renderNode(node: Node, depth: number): string {
       return `${pad}<div${idAttr}${styleAttr}>${inner}</div>`;
   }
 }
+
+/**
+ * Shared component styles + the CSS-only interactivity (accordion via <details>,
+ * switch via :checked sibling, NavBar menu open/close via a hidden checkbox).
+ * Emitted once into <head> so the generated page is self-contained and live.
+ */
+const COMPONENT_CSS = `
+    .drafter-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .drafter-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .drafter-switch input { display: none; }
+    .drafter-switch .drafter-slider { position: relative; width: 40px; height: 22px; flex: 0 0 auto; background: #cbd5e1; border-radius: 999px; transition: .2s; }
+    .drafter-switch .drafter-slider::before { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: .2s; }
+    .drafter-switch input:checked + .drafter-slider { background: #2563eb; }
+    .drafter-switch input:checked + .drafter-slider::before { transform: translateX(18px); }
+    .drafter-divider { background: #e5e7eb; }
+    .drafter-badge { display: inline-flex; align-items: center; justify-content: center; padding: 2px 10px; border-radius: 999px; font-size: 12px; background: #e0e7ff; color: #3730a3; }
+    .drafter-avatar { border-radius: 50%; object-fit: cover; display: flex; align-items: center; justify-content: center; background: #c7d2fe; color: #3730a3; font-weight: 700; }
+    .drafter-list { margin: 0; padding-left: 20px; }
+    .drafter-accordion { overflow: visible; }
+    .drafter-accordion > summary { cursor: pointer; list-style: revert; padding: 8px 0; font-weight: 600; }
+    .drafter-acc-body { padding: 4px 0; }
+    .drafter-nav { display: flex; align-items: center; gap: 16px; padding: 0 16px; overflow: visible; }
+    .drafter-nav-brand { font-weight: 700; }
+    .drafter-nav-links { display: flex; gap: 16px; }
+    .drafter-nav-links a { color: inherit; text-decoration: none; }
+    .drafter-nav-toggle { display: none; }
+    .drafter-nav-burger { margin-left: auto; cursor: pointer; font-size: 20px; user-select: none; }
+    .drafter-nav-collapsible .drafter-nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; gap: 12px; padding: 12px 16px; background: inherit; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+    .drafter-nav-toggle:checked ~ .drafter-nav-links { display: flex; }
+`;
 
 export function generateHtml(doc: Document): string {
   const c = doc.canvas;
@@ -96,7 +196,7 @@ export function generateHtml(doc: Document): string {
     margin: "0 auto",
     overflow: "hidden",
   });
-  const body = renderNode(doc.root, 3);
+  const body = renderNode(doc.root, 3, false);
   return `<!doctype html>
 <html lang="ja">
 <head>
@@ -106,7 +206,7 @@ export function generateHtml(doc: Document): string {
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #f4f4f5; font-family: system-ui, sans-serif; }
-  </style>
+${COMPONENT_CSS}  </style>
 </head>
 <body>
   <!-- DRAFTER:BEGIN generated from ${esc(doc.name)} (do not edit inside markers) -->

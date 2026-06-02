@@ -69,19 +69,36 @@ export const NodeType = z.enum([
   "Image", // -> <img>
   "Input", // -> <input>
   "Rectangle", // -> <div> (pure shape)
+  "Link", // -> <a>
+  "Textarea", // -> <textarea>
+  "Checkbox", // -> <label><input type=checkbox> ...
+  "Switch", // -> styled checkbox toggle
+  "Select", // -> <select> with options
+  "Divider", // -> <hr>
+  "Badge", // -> <span> pill
+  "Avatar", // -> circular <img> / initials
+  "List", // -> <ul><li>...
+  "Accordion", // -> <details><summary> (native open/close)
+  "NavBar", // -> top bar with collapsible menu (CSS-only toggle)
 ]);
 export type NodeType = z.infer<typeof NodeType>;
 
 export const Props = z
   .object({
     text: z.string().optional(), // Text
-    label: z.string().optional(), // Button
-    src: z.string().optional(), // Image
-    alt: z.string().optional(), // Image
-    placeholder: z.string().optional(), // Input
+    label: z.string().optional(), // Button / Checkbox / Switch
+    src: z.string().optional(), // Image / Avatar
+    alt: z.string().optional(), // Image / Avatar
+    placeholder: z.string().optional(), // Input / Textarea
     inputType: z.string().optional(), // Input ("text" | "email" | ...)
-    href: z.string().optional(), // Button-as-link
+    href: z.string().optional(), // Link / Button-as-link
     variant: z.string().optional(), // semantic hint, e.g. "primary"
+    checked: z.boolean().optional(), // Checkbox / Switch
+    options: z.array(z.string()).optional(), // Select
+    items: z.array(z.string()).optional(), // List / NavBar links
+    title: z.string().optional(), // Accordion header / NavBar brand
+    body: z.string().optional(), // Accordion content
+    collapsible: z.boolean().optional(), // NavBar (show burger toggle)
   })
   .strict();
 export type Props = z.infer<typeof Props>;
@@ -97,6 +114,10 @@ export interface Node {
   style?: Style;
   props?: Props;
   comments?: Comment[];
+  /** Editor-only: not selectable/draggable while true. */
+  locked?: boolean;
+  /** Editor-only: hidden on the canvas and skipped by codegen. */
+  hidden?: boolean;
   children?: Node[];
 }
 
@@ -111,6 +132,8 @@ export const Node: z.ZodType<Node> = z.lazy(() =>
       style: Style.optional(),
       props: Props.optional(),
       comments: z.array(Comment).optional(),
+      locked: z.boolean().optional(),
+      hidden: z.boolean().optional(),
       children: z.array(Node).optional(),
     })
     .strict()
