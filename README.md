@@ -49,6 +49,7 @@ node src/cli.ts examples/design.json out --check   # 検証＋未解決コメン
 
 ## For AI agents / tooling
 
+- **MCP サーバ**: [`mcp/server.ts`](mcp/server.ts) — Claude Desktop / Cursor / Claude Code が `design.json` を直接 read/write。設定は [`docs/MCP.md`](docs/MCP.md)。決定論ツールのみ＝**追加AIコストなし**。
 - IR の機械可読仕様: [`schema/design.schema.json`](schema/design.schema.json)（JSON Schema）
 - AI 向けガイド（IRの読み書き方）: [`AGENTS.md`](AGENTS.md)
 - IR の TypeScript / zod 定義: [`src/ir/schema.ts`](src/ir/schema.ts)

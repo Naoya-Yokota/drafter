@@ -54,6 +54,10 @@ If you are an AI building or editing UI, **produce/modify `design.json`**, not H
 
 ## Programmatic entry points
 
+- **MCP server:** `mcp/server.ts` exposes `get_schema`, `read_design`, `write_design`,
+  `edit_node`, `validate_design`, `generate_html`, `describe_design`, `export_ai_pack`.
+  Configure it in your MCP client (see `docs/MCP.md`) to read/write `design.json` natively.
+  Deterministic tools only — the server never calls an LLM.
 - **CLI:** `node src/cli.ts <design.json> [outDir]` → validates and writes `out/index.html`.
 - **Codegen:** `generateHtml(doc)` in `src/codegen/html.ts` (`IR -> string`, pure, no AI).
 - **Validation:** `parseDocument(raw)` in `src/ir/schema.ts` (zod), or the JSON Schema.

@@ -16,6 +16,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "validate": "node scripts/validate-templates.mjs",
+    "mcp": "node mcp/server.ts",
     "gen": "node src/cli.ts",
     "gen:example": "node src/cli.ts examples/design.json out",
     "check": "node src/cli.ts examples/design.json out --check"
