@@ -1,0 +1,50 @@
+{
+  "version": "0.1",
+  "name": "Login Screen",
+  "canvas": { "width": 420, "height": 640, "background": "#ffffff" },
+  "root": {
+    "id": "screen",
+    "type": "Frame",
+    "name": "Screen",
+    "frame": { "x": 0, "y": 0, "w": 420, "h": 640 },
+    "style": { "background": "#ffffff" },
+    "children": [
+      {
+        "id": "title",
+        "type": "Text",
+        "frame": { "x": 40, "y": 80, "w": 340, "h": 40 },
+        "props": { "text": "ようこそ" },
+        "style": { "fontSize": 28, "fontWeight": 700, "color": "#111827", "textAlign": "center" }
+      },
+      {
+        "id": "email",
+        "type": "Input",
+        "frame": { "x": 40, "y": 180, "w": 340, "h": 48 },
+        "props": { "placeholder": "メールアドレス", "inputType": "email" },
+        "style": { "border": "1px solid #d1d5db", "borderRadius": 8, "fontSize": 16, "background": "#ffffff" }
+      },
+      {
+        "id": "password",
+        "type": "Input",
+        "frame": { "x": 40, "y": 244, "w": 340, "h": 48 },
+        "props": { "placeholder": "パスワード", "inputType": "password" },
+        "style": { "border": "1px solid #d1d5db", "borderRadius": 8, "fontSize": 16, "background": "#ffffff" }
+      },
+      {
+        "id": "btn_submit",
+        "type": "Button",
+        "frame": { "x": 40, "y": 320, "w": 340, "h": 48 },
+        "props": { "label": "ログイン", "variant": "primary" },
+        "style": { "background": "#2563eb", "color": "#ffffff", "borderRadius": 8, "fontSize": 16, "fontWeight": 600, "border": "none" },
+        "comments": [
+          {
+            "id": "c1",
+            "author": "user",
+            "text": "押したときに少し暗くなるホバー効果がほしい。色ももう少し濃い青に。",
+            "resolved": false
+          }
+        ]
+      }
+    ]
+  }
+}

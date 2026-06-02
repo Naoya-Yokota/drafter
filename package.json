@@ -1,0 +1,16 @@
+{
+  "name": "drafter",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "GUI layout designer that compiles to code (HTML first, Unity/mobile later). IR-centric, AI-friendly, OSS.",
+  "license": "MIT",
+  "scripts": {
+    "gen": "node src/cli.ts",
+    "gen:example": "node src/cli.ts examples/design.json out",
+    "check": "node src/cli.ts examples/design.json out --check"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}
