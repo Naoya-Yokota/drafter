@@ -73,6 +73,34 @@ function flexContainerCss(layout: Node["layout"]): Record<string, string> {
   return out;
 }
 
+/**
+ * Make text-bearing leaves match the GUI canvas exactly: the content is
+ * vertically centered, horizontally aligned per textAlign, and clipped to the
+ * box. Without this, browser <p>/<button> defaults (margins, top alignment)
+ * shift text and cause overlap — the "canvas looks fine, preview is broken" bug.
+ */
+function contentCss(node: Node, hasChildren: boolean): Record<string, string> {
+  if (hasChildren) return {};
+  switch (node.type) {
+    case "Text":
+    case "Button":
+    case "Link":
+    case "Badge": {
+      const a = node.style?.textAlign;
+      return {
+        display: "flex",
+        "align-items": "center",
+        "justify-content": a === "center" ? "center" : a === "right" ? "flex-end" : "flex-start",
+        overflow: "hidden",
+        margin: "0",
+        padding: "0 4px",
+      };
+    }
+    default:
+      return {};
+  }
+}
+
 function initials(name: string): string {
   const t = name.trim();
   if (!t) return "?";
@@ -83,7 +111,8 @@ function initials(name: string): string {
 function renderNode(node: Node, depth: number, parentFlex: boolean): string {
   const pad = "  ".repeat(depth);
   const flex = node.layout?.mode === "flex";
-  const css = styleToCss(node.style, { ...positionCss(node, parentFlex), ...flexContainerCss(node.layout) });
+  const hasKids = (node.children?.length ?? 0) > 0;
+  const css = styleToCss(node.style, { ...positionCss(node, parentFlex), ...flexContainerCss(node.layout), ...contentCss(node, hasKids) });
   const idAttr = ` id="${esc(node.id)}"`;
   const styleAttr = ` style="${esc(css)}"`;
   const p = node.props ?? {};
@@ -227,6 +256,9 @@ export function generateHtml(doc: Document): string {
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #f4f4f5; font-family: system-ui, sans-serif; }
+    .drafter-canvas * { margin: 0; }
+    .drafter-canvas p { line-height: 1.2; }
+    .drafter-canvas button, .drafter-canvas input, .drafter-canvas textarea, .drafter-canvas select { font-family: inherit; }
 ${COMPONENT_CSS}  </style>
 </head>
 <body>
