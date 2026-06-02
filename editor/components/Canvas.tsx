@@ -114,6 +114,16 @@ function nodeInner(node: Node): React.ReactNode {
       );
     case "Image":
       return p.src ? <img src={p.src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9ca3af" }}>🖼</span>;
+    case "Icon":
+      return <span style={{ lineHeight: 1 }}>{p.text ?? "★"}</span>;
+    case "ProgressBar":
+      return <span style={{ position: "absolute", inset: 0, display: "block", borderRadius: "inherit", overflow: "hidden" }}><span style={{ display: "block", height: "100%", width: `${Math.max(0, Math.min(100, p.value ?? 50))}%`, background: "#2563eb" }} /></span>;
+    case "Embed":
+      return p.src ? (
+        <iframe src={p.src} title="" loading="lazy" style={{ width: "100%", height: "100%", border: 0, borderRadius: "inherit" }} />
+      ) : (
+        <span style={{ color: "#6b7280" }}>🗺 {p.title ?? "Embed"}</span>
+      );
     default:
       return null;
   }
@@ -281,6 +291,10 @@ export function Canvas({ doc, zoom, selectedIds, onSelectOnly, onToggleSelect, o
 
     const inner = !flexContainer && !hasChildren ? nodeInner(node) : null;
     const innerJustify = node.style?.textAlign === "center" ? "center" : node.style?.textAlign === "right" ? "flex-end" : "flex-start";
+    const fullBleed = node.type === "Image" || node.type === "Embed" || node.type === "ProgressBar" || node.type === "Avatar";
+    const innerStyle: React.CSSProperties = fullBleed
+      ? { pointerEvents: "none", position: "absolute", inset: 0, overflow: "hidden", borderRadius: "inherit" }
+      : { pointerEvents: "none", position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: innerJustify, padding: "0 4px", overflow: "hidden" };
     const isEditing = editing === node.id;
 
     return (
@@ -291,11 +305,7 @@ export function Canvas({ doc, zoom, selectedIds, onSelectOnly, onToggleSelect, o
         onDoubleClick={isRoot || !editKey ? undefined : (e) => { e.stopPropagation(); onSelectOnly(node.id); setEditing(node.id); }}
         onContextMenu={isRoot ? undefined : (e) => { e.preventDefault(); e.stopPropagation(); onContextNode(e, node.id); }}
       >
-        {inner != null && !isEditing && (
-          <div style={{ pointerEvents: "none", position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: innerJustify, padding: "0 4px", overflow: "hidden" }}>
-            {inner}
-          </div>
-        )}
+        {inner != null && !isEditing && <div style={innerStyle}>{inner}</div>}
         {isEditing && editKey && (
           <textarea
             autoFocus

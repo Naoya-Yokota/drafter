@@ -200,13 +200,37 @@ export function Inspector({ node, busy, docColors, onPatch, onDelete, onAlign, o
           <CheckRow label="開閉式(burger)" value={node.props?.collapsible ?? true} onChange={(v) => setProps({ collapsible: v })} />
         </>
       )}
+      {node.type === "Icon" && (
+        <TextRow label="アイコン(絵文字/字)" value={node.props?.text ?? ""} onChange={(v) => setProps({ text: v })} />
+      )}
+      {node.type === "ProgressBar" && (
+        <NumberRow label="value (0-100)" value={node.props?.value ?? 50} onChange={(v) => setProps({ value: Math.max(0, Math.min(100, v)) })} />
+      )}
+      {node.type === "Embed" && (
+        <>
+          <AreaRow label="埋め込みURL (iframe)" value={node.props?.src ?? ""} onChange={(v) => setProps({ src: v || undefined })} />
+          <TextRow label="代替テキスト" value={node.props?.title ?? ""} onChange={(v) => setProps({ title: v })} />
+          <p className="hint">Googleマップ/YouTube等の「埋め込み(iframe)のsrc」を貼ってください。</p>
+        </>
+      )}
 
       <h4>Style</h4>
       <ColorField label="background" value={s.background} docColors={docColors} onChange={(v) => setStyle({ background: v })} />
       <ColorField label="color（文字）" value={s.color} docColors={docColors} onChange={(v) => setStyle({ color: v })} />
       <NumberRow label="fontSize" value={s.fontSize ?? 0} onChange={(v) => setStyle({ fontSize: v || undefined })} />
       <NumberRow label="borderRadius" value={s.borderRadius ?? 0} onChange={(v) => setStyle({ borderRadius: v || undefined })} />
+      <NumberRow label="padding" value={s.padding ?? 0} onChange={(v) => setStyle({ padding: v || undefined })} />
       <TextRow label="border" value={s.border ?? ""} onChange={(v) => setStyle({ border: v || undefined })} />
+      <TextRow label="shadow" value={s.shadow ?? ""} onChange={(v) => setStyle({ shadow: v || undefined })} />
+      <label className="row">
+        <span>overflow（スクロール）</span>
+        <select value={s.overflow ?? "visible"} onChange={(e) => setStyle({ overflow: e.target.value === "visible" ? undefined : (e.target.value as Style["overflow"]) })}>
+          <option value="visible">visible</option>
+          <option value="hidden">hidden</option>
+          <option value="auto">auto（必要時スクロール）</option>
+          <option value="scroll">scroll（常時）</option>
+        </select>
+      </label>
       <label className="row">
         <span>textAlign</span>
         <select

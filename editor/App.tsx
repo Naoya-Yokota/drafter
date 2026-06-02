@@ -28,7 +28,7 @@ import { Tree } from "./components/Tree.tsx";
 import { Preview } from "./components/Preview.tsx";
 import { ContextMenu, type MenuState } from "./components/ContextMenu.tsx";
 import { CommandPalette, type Command } from "./components/CommandPalette.tsx";
-import { TEMPLATES } from "./templates.ts";
+import { TEMPLATES, TEMPLATE_CATEGORIES } from "./templates.ts";
 
 const CANVAS_PRESETS: { label: string; w: number; h: number }[] = [
   { label: "モバイル", w: 390, h: 844 },
@@ -635,12 +635,17 @@ export function App() {
         <div className="menu-anchor">
           <button onClick={() => setShowNew((v) => !v)}>新規作成 ▾</button>
           {showNew && (
-            <div className="dropdown" onPointerLeave={() => setShowNew(false)}>
-              <div className="dropdown-label">テンプレートから</div>
-              {TEMPLATES.map((t) => (
-                <button key={t.id} onClick={() => onNewFromTemplate(t.id)}>
-                  {t.label}
-                </button>
+            <div className="dropdown palette templates" onPointerLeave={() => setShowNew(false)}>
+              <div className="dropdown-head">テンプレートから（{TEMPLATES.length}種）</div>
+              {TEMPLATE_CATEGORIES.map((g) => (
+                <div key={g.category}>
+                  <div className="dropdown-label">{g.category}</div>
+                  {g.items.map((t) => (
+                    <button key={t.id} onClick={() => onNewFromTemplate(t.id)}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           )}

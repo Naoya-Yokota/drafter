@@ -33,6 +33,11 @@ function styleToCss(style: Style | undefined, extra: Record<string, string>): st
     if (style.border) out["border"] = style.border;
     if (style.opacity != null) out["opacity"] = String(style.opacity);
     if (style.shadow) out["box-shadow"] = style.shadow;
+    if (style.overflow) out["overflow"] = style.overflow;
+    if (style.padding != null) out["padding"] = `${style.padding}px`;
+    if (style.lineHeight != null) out["line-height"] = String(style.lineHeight);
+    if (style.letterSpacing != null) out["letter-spacing"] = `${style.letterSpacing}px`;
+    if (style.backdrop) out["backdrop-filter"] = style.backdrop;
   }
   return Object.entries(out)
     .map(([k, v]) => `${k}: ${v}`)
@@ -149,6 +154,18 @@ function renderNode(node: Node, depth: number, parentFlex: boolean): string {
       const collapsible = p.collapsible === false ? "" : " drafter-nav-collapsible";
       return `${pad}<nav${idAttr}${styleAttr} class="drafter-nav${collapsible}"><span class="drafter-nav-brand">${esc(p.title ?? "Menu")}</span>${burger}<div class="drafter-nav-links">${items}</div></nav>`;
     }
+    case "Embed": {
+      const src = esc(p.src ?? "");
+      if (!src) return `${pad}<div${idAttr}${styleAttr} class="drafter-embed">${esc(p.title ?? "Embed")}</div>`;
+      return `${pad}<iframe${idAttr}${styleAttr} class="drafter-embed" src="${src}" loading="lazy" frameborder="0" allowfullscreen></iframe>`;
+    }
+    case "Icon": {
+      return `${pad}<div${idAttr}${styleAttr} class="drafter-icon">${esc(p.text ?? "★")}</div>`;
+    }
+    case "ProgressBar": {
+      const v = Math.max(0, Math.min(100, p.value ?? 50));
+      return `${pad}<div${idAttr}${styleAttr} class="drafter-progress"><div class="drafter-progress-fill" style="width:${v}%"></div></div>`;
+    }
     case "Frame":
     case "Rectangle":
     default:
@@ -184,6 +201,10 @@ const COMPONENT_CSS = `
     .drafter-nav-burger { margin-left: auto; cursor: pointer; font-size: 20px; user-select: none; }
     .drafter-nav-collapsible .drafter-nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; gap: 12px; padding: 12px 16px; background: inherit; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
     .drafter-nav-toggle:checked ~ .drafter-nav-links { display: flex; }
+    .drafter-embed { border: 0; display: flex; align-items: center; justify-content: center; color: #6b7280; background: #f1f5f9; }
+    .drafter-icon { display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .drafter-progress { background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+    .drafter-progress-fill { height: 100%; background: #2563eb; border-radius: 999px; }
 `;
 
 export function generateHtml(doc: Document): string {

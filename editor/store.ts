@@ -173,6 +173,12 @@ const DEFAULTS: Record<NodeType, Partial<Node>> = {
     props: { title: "Brand", items: ["ホーム", "機能", "料金", "お問い合わせ"], collapsible: true },
     style: { background: "#111827", color: "#ffffff", fontSize: 15 },
   },
+  Embed: {
+    props: { src: "https://www.openstreetmap.org/export/embed.html?bbox=139.69,35.68,139.71,35.70&layer=mapnik", title: "地図" },
+    style: { borderRadius: 12, border: "1px solid #e5e7eb" },
+  },
+  Icon: { props: { text: "★" }, style: { fontSize: 32, color: "#2563eb" } },
+  ProgressBar: { props: { value: 60 }, style: { background: "#e5e7eb", borderRadius: 999 } },
 };
 
 const DEFAULT_SIZE: Record<NodeType, { w: number; h: number }> = {
@@ -193,14 +199,18 @@ const DEFAULT_SIZE: Record<NodeType, { w: number; h: number }> = {
   List: { w: 240, h: 110 },
   Accordion: { w: 320, h: 52 },
   NavBar: { w: 390, h: 56 },
+  Embed: { w: 320, h: 220 },
+  Icon: { w: 48, h: 48 },
+  ProgressBar: { w: 240, h: 10 },
 };
 
 /** Component palette grouped for the toolbar's add menu. */
 export const PALETTE: { group: string; types: NodeType[] }[] = [
-  { group: "基本", types: ["Frame", "Text", "Button", "Image", "Rectangle"] },
+  { group: "基本", types: ["Frame", "Text", "Button", "Image", "Rectangle", "Icon"] },
   { group: "フォーム", types: ["Input", "Textarea", "Select", "Checkbox", "Switch"] },
-  { group: "表示", types: ["Link", "Badge", "Avatar", "Divider", "List"] },
+  { group: "表示", types: ["Link", "Badge", "Avatar", "Divider", "List", "ProgressBar"] },
   { group: "ナビ/開閉", types: ["NavBar", "Accordion"] },
+  { group: "メディア/埋込", types: ["Embed"] },
 ];
 
 export function makeNode(type: NodeType, at: { x: number; y: number }): Node {

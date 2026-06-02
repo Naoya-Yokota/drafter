@@ -14,6 +14,17 @@ const PALETTE = [
   "#ec4899", "#f43f5e", "#fecaca", "#fed7aa", "#fde68a", "#bbf7d0", "#bfdbfe", "#e9d5ff",
 ];
 
+const GRADIENTS = [
+  "linear-gradient(135deg, #667eea, #764ba2)",
+  "linear-gradient(135deg, #f093fb, #f5576c)",
+  "linear-gradient(135deg, #4facfe, #00f2fe)",
+  "linear-gradient(135deg, #43e97b, #38f9d7)",
+  "linear-gradient(135deg, #fa709a, #fee140)",
+  "linear-gradient(135deg, #30cfd0, #330867)",
+  "linear-gradient(135deg, #a8edea, #fed6e3)",
+  "linear-gradient(180deg, #2563eb, #1e3a8a)",
+];
+
 // Recently used colors, shared across all ColorField instances this session.
 const recent: string[] = [];
 function pushRecent(c: string) {
@@ -102,6 +113,12 @@ export function ColorField({ label, value, onChange, docColors = [] }: Props) {
                 </div>
               </>
             )}
+            <div className="color-pop-label">グラデーション</div>
+            <div className="swatches grad">
+              {GRADIENTS.map((g) => (
+                <button key={g} type="button" className={`sw${value === g ? " on" : ""}`} style={{ background: g }} title="グラデーション" onClick={() => pick(g, true)} />
+              ))}
+            </div>
             <div className="color-pop-row">
               <input type="color" value={asHex(value)} onChange={(e) => pick(e.target.value)} />
               <button type="button" title="スポイト" onClick={eyedropper}>🔍 スポイト</button>

@@ -36,6 +36,11 @@ export const Style = z
     border: z.string().optional(),
     opacity: z.number().min(0).max(1).optional(),
     shadow: z.string().optional(),
+    overflow: z.enum(["visible", "hidden", "auto", "scroll"]).optional(),
+    padding: z.number().optional(),
+    lineHeight: z.number().optional(),
+    letterSpacing: z.number().optional(),
+    backdrop: z.string().optional(), // backdrop-filter, e.g. "blur(8px)"
   })
   .strict();
 export type Style = z.infer<typeof Style>;
@@ -80,6 +85,9 @@ export const NodeType = z.enum([
   "List", // -> <ul><li>...
   "Accordion", // -> <details><summary> (native open/close)
   "NavBar", // -> top bar with collapsible menu (CSS-only toggle)
+  "Embed", // -> <iframe> (map / video / generic embed)
+  "Icon", // -> centered glyph/emoji
+  "ProgressBar", // -> track + fill
 ]);
 export type NodeType = z.infer<typeof NodeType>;
 
@@ -99,6 +107,7 @@ export const Props = z
     title: z.string().optional(), // Accordion header / NavBar brand
     body: z.string().optional(), // Accordion content
     collapsible: z.boolean().optional(), // NavBar (show burger toggle)
+    value: z.number().optional(), // ProgressBar (0-100)
   })
   .strict();
 export type Props = z.infer<typeof Props>;
