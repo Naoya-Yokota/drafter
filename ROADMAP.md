@@ -39,7 +39,21 @@ no runtime behavior** — but within that scope we aim for parity. Below, ✅ do
 - ⬜ Image upload / asset library, icon set (not just emoji)
 
 ## Multi-screen / flow
-- ⬜ Multiple screens per project, screen list, links/prototyping between screens
+**Deliberately deferred — kept lightweight on purpose.** Full Figma-style
+interactive prototyping (click triggers, transitions, animations) is explicitly
+**out of scope**: it breaks Drafter's "no runtime behavior" promise, competes
+head-on with Penpot (far more mature), and would bloat the "one screen, done
+fast" UX that is our actual differentiation. Even Pencil.dev (the closest
+prior art, ~100k users) avoids it — they only place multiple *frames* in one
+file as a static visual truth for the AI.
+
+- ⬜ **Lite: multi-frame** — multiple artboards/frames in one `design.json`
+  (e.g. mobile 390 + desktop 1440), as static visual truth. No runtime behavior.
+- ⬜ **Lite: static flow map** — `flows[]` metadata only ("node X relates to
+  screen Y") as a *hint to the AI*, not a trigger. Codegen stays at plain
+  `<a href>` at most.
+- ❌ **Won't do: interactive prototyping** — triggers/transitions/animations,
+  prototype mode, on-canvas connection lines. (Use Penpot if you need this.)
 
 ## Codegen & handoff
 - ✅ HTML codegen, live preview, HTML export
@@ -61,5 +75,11 @@ no runtime behavior** — but within that scope we aim for parity. Below, ✅ do
 1. **Components + design tokens** — the highest-leverage parity gap; also makes IR far better for AI.
 2. **React/TSX codegen** — completes "design → real code".
 3. **Rulers/guides, distance badges, 8-handle resize, reparent-by-drag** — daily-driver polish.
-4. **Multi-screen + links** — from "one screen" to "a product".
-5. **AI diff/approve + selection-scoped edits** — make the AI loop trustworthy.
+4. **AI diff/approve + selection-scoped edits** — make the AI loop trustworthy.
+5. *(Maybe, later)* **Lite multi-frame + static flow map** — only the no-behavior
+   subset above. Reassess demand first; do NOT build interactive prototyping.
+
+> Positioning note: our wedge is **browser-only, IDE-independent, BYOA ($0 ops),
+> tiny hand-writable IR, one screen done well**. Every item above is chosen to
+> deepen that wedge. Multi-screen/prototyping pulls toward Penpot's turf where
+> we can't win, so it stays demoted to the lite subset.
