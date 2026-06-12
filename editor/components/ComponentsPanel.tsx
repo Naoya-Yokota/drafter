@@ -3,8 +3,10 @@ import type { Document } from "../../src/ir/schema.ts";
 type Props = {
   components: Document["components"];
   selectionCount: number;
+  editingId: string | null;
   onCreateFromSelection: () => void;
   onPlace: (componentId: string) => void;
+  onEdit: (componentId: string) => void;
   onRename: (componentId: string, name: string) => void;
   onDelete: (componentId: string) => void;
 };
@@ -14,7 +16,7 @@ type Props = {
  * more instances; each instance can be tweaked per-node via the Inspector while
  * sharing the same definition.
  */
-export function ComponentsPanel({ components, selectionCount, onCreateFromSelection, onPlace, onRename, onDelete }: Props) {
+export function ComponentsPanel({ components, selectionCount, editingId, onCreateFromSelection, onPlace, onEdit, onRename, onDelete }: Props) {
   const entries = Object.entries(components ?? {});
   return (
     <div className="components-panel">
@@ -29,16 +31,18 @@ export function ComponentsPanel({ components, selectionCount, onCreateFromSelect
       </button>
       {entries.length === 0 && <div className="inspector empty" style={{ padding: 8 }}>コンポーネントはまだありません</div>}
       {entries.map(([id, def]) => (
-        <div key={id} className="row" style={{ gap: 6, alignItems: "center" }}>
+        <div key={id} className="row" style={{ gap: 6, alignItems: "center", background: editingId === id ? "#ede9fe" : undefined, borderRadius: 4 }}>
           <span title="コンポーネント" style={{ flex: "0 0 auto" }}>◇</span>
           <input
             type="text"
+            key={def.name}
             defaultValue={def.name}
             onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== def.name) onRename(id, v); }}
             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             style={{ flex: 1, minWidth: 0 }}
           />
-          <button title="配置（インスタンスを追加）" onClick={() => onPlace(id)} style={{ flex: "0 0 auto" }}>＋配置</button>
+          <button title="マスターを編集" onClick={() => onEdit(id)} style={{ flex: "0 0 auto" }}>✎</button>
+          <button title="配置（インスタンスを追加）" onClick={() => onPlace(id)} style={{ flex: "0 0 auto" }}>＋</button>
           <button title="削除" onClick={() => onDelete(id)} style={{ flex: "0 0 auto" }}>✕</button>
         </div>
       ))}

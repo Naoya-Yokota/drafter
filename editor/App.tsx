@@ -57,7 +57,34 @@ function isEditingField(): boolean {
 }
 
 export function App() {
-  const { doc, canUndo, canRedo, reset, commit, replace, undo, redo } = useHistory();
+  const { doc: baseDoc, canUndo, canRedo, reset, commit: rawCommit, replace: rawReplace, undo, redo } = useHistory();
+  const [editComp, setEditComp] = useState<string | null>(null);
+
+  // While editing a component "master", the editor renders that component's root
+  // as the canvas. `doc` is the active view; edits are mapped back into the real
+  // document by commit/replace below, so every editing callback works unchanged.
+  const doc = useMemo(() => {
+    if (!baseDoc || !editComp) return baseDoc;
+    const def = baseDoc.components?.[editComp];
+    if (!def) return baseDoc;
+    const cr = def.root;
+    return { ...baseDoc, root: cr, canvas: { ...baseDoc.canvas, width: cr.frame.w, height: cr.frame.h } };
+  }, [baseDoc, editComp]);
+
+  const reroute = useCallback(
+    (cur: Document, fn: (view: Document) => Document): Document => {
+      if (!editComp || !cur.components?.[editComp]) return fn(cur);
+      const cr = cur.components[editComp].root;
+      const view: Document = { ...cur, root: cr, canvas: { ...cur.canvas, width: cr.frame.w, height: cr.frame.h } };
+      const next = fn(view);
+      return { ...cur, components: { ...cur.components, [editComp]: { ...cur.components[editComp], root: next.root } } };
+    },
+    [editComp],
+  );
+
+  const commit = useCallback((fn: (cur: Document) => Document) => rawCommit((cur) => reroute(cur, fn)), [rawCommit, reroute]);
+  const replace = useCallback((fn: (cur: Document) => Document) => rawReplace((cur) => reroute(cur, fn)), [rawReplace, reroute]);
+
   const [path, setPath] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
@@ -177,14 +204,15 @@ export function App() {
 
   const onPatchCanvas = useCallback(
     (patch: Partial<Document["canvas"]>) => {
-      commit((cur) => {
+      if (editComp) return; // canvas size is the component's own frame while editing a master
+      rawCommit((cur) => {
         const canvas = { ...cur.canvas, ...patch };
         const root = { ...cur.root, frame: { ...cur.root.frame, w: canvas.width, h: canvas.height } };
         return { ...cur, canvas, root };
       });
       touch();
     },
-    [commit, touch],
+    [editComp, rawCommit, touch],
   );
 
   const insertClones = useCallback(
@@ -449,19 +477,19 @@ export function App() {
     [doc, commit, touch],
   );
 
-  // Design tokens.
+  // Design tokens (document-level — always the real doc).
   const onPatchTokens = useCallback(
     (tokens: Document["tokens"]) => {
-      commit((cur) => ({ ...cur, tokens }));
+      rawCommit((cur) => ({ ...cur, tokens }));
       touch();
     },
-    [commit, touch],
+    [rawCommit, touch],
   );
 
-  // Components.
+  // Components. Componentizing operates on the main screen's selection.
   const onCreateComponent = useCallback(() => {
-    if (!doc) return;
-    commit((cur) => {
+    if (!doc || editComp) return;
+    rawCommit((cur) => {
       const res = createComponentFromSelection(cur, selectedIds);
       if (!res) return cur;
       setSelectedIds([res.instanceId]);
@@ -469,7 +497,7 @@ export function App() {
     });
     setRightTab("components");
     touch();
-  }, [doc, selectedIds, commit, touch]);
+  }, [doc, editComp, selectedIds, rawCommit, touch]);
 
   const onPlaceInstance = useCallback(
     (componentId: string) => {
@@ -486,19 +514,20 @@ export function App() {
 
   const onRenameComponent = useCallback(
     (id: string, name: string) => {
-      commit((cur) => {
+      rawCommit((cur) => {
         const def = cur.components?.[id];
         if (!def) return cur;
         return { ...cur, components: { ...cur.components, [id]: { ...def, name } } };
       });
       touch();
     },
-    [commit, touch],
+    [rawCommit, touch],
   );
 
   const onDeleteComponent = useCallback(
     (id: string) => {
-      commit((cur) => {
+      if (editComp === id) setEditComp(null);
+      rawCommit((cur) => {
         if (!cur.components?.[id]) return cur;
         const rest = { ...cur.components };
         delete rest[id];
@@ -506,8 +535,20 @@ export function App() {
       });
       touch();
     },
-    [commit, touch],
+    [editComp, rawCommit, touch],
   );
+
+  // Enter/leave component-master editing.
+  const onEditComponent = useCallback((id: string) => {
+    setEditComp(id);
+    setSelectedIds([]);
+    setRightTab("design");
+  }, []);
+
+  const exitEditComponent = useCallback(() => {
+    setEditComp(null);
+    setSelectedIds([]);
+  }, []);
 
   // Per-instance override of an inner node (props/style merged).
   const onSetOverride = useCallback(
@@ -567,7 +608,7 @@ export function App() {
 
   const onAiResolve = useCallback(
     async (id: string) => {
-      if (!doc) return;
+      if (!doc || editComp) return;
       setBusy(true);
       setStatus("AIに修正を依頼中…（裏で claude を実行）");
       try {
@@ -598,10 +639,10 @@ export function App() {
   }, []);
 
   const onSave = useCallback(async () => {
-    if (!doc) return;
+    if (!baseDoc) return;
     setStatus("保存中…");
     try {
-      const saved = await saveDesign(doc);
+      const saved = await saveDesign(baseDoc);
       setDirty(false);
       setStatus(`保存しました → ${saved}`);
     } catch (e) {
@@ -620,19 +661,19 @@ export function App() {
   }, []);
 
   const onExport = useCallback(() => {
-    if (!doc) return;
-    download(`${doc.name || "design"}.html`, generateHtml(doc), "text/html");
+    if (!baseDoc) return;
+    download(`${baseDoc.name || "design"}.html`, generateHtml(baseDoc), "text/html");
     setStatus("HTMLを書き出しました。");
-  }, [doc, download]);
+  }, [baseDoc, download]);
 
   const onExportAiPack = useCallback(() => {
-    if (!doc) return;
-    download(`${doc.name || "design"}.drafter-ai.md`, buildAiPack(doc, generateHtml(doc)), "text/markdown");
+    if (!baseDoc) return;
+    download(`${baseDoc.name || "design"}.drafter-ai.md`, buildAiPack(baseDoc, generateHtml(baseDoc)), "text/markdown");
     setStatus("AI向けパック（説明＋IR＋HTML）を書き出しました。");
-  }, [doc, download]);
+  }, [baseDoc, download]);
 
   const onGenerate = useCallback(async () => {
-    if (!genText.trim() || !doc) return;
+    if (!genText.trim() || !doc || editComp) return;
     setBusy(true);
     setGenOpen(false);
     setStatus("AIが画面を生成中…（裏で claude を実行）");
@@ -655,6 +696,7 @@ export function App() {
       const t = TEMPLATES.find((x) => x.id === templateId);
       if (!t) return;
       if (dirty && !window.confirm("未保存の変更があります。テンプレートで置き換えますか？")) return;
+      setEditComp(null);
       reset(structuredClone(t.doc));
       setSelectedIds([]);
       setDirty(true);
@@ -752,7 +794,7 @@ export function App() {
     { id: "save", label: "保存", hint: "Ctrl+S", run: onSave },
     { id: "group", label: "グループ化", hint: "Ctrl+G", run: onGroup },
     ...(primaryId ? [{ id: "ungroup", label: "グループ解除", hint: "Ctrl+Shift+G", run: () => onUngroup(primaryId) }] : []),
-    ...(selectedIds.filter((id) => id !== doc.root.id).length ? [{ id: "componentize", label: "◇ 選択をコンポーネント化", run: onCreateComponent }] : []),
+    ...(!editComp && selectedIds.filter((id) => id !== doc.root.id).length ? [{ id: "componentize", label: "◇ 選択をコンポーネント化", run: onCreateComponent }] : []),
     { id: "undo", label: "元に戻す", hint: "Ctrl+Z", run: () => { undo(); setDirty(true); } },
     { id: "redo", label: "やり直し", hint: "Ctrl+Shift+Z", run: () => { redo(); setDirty(true); } },
     { id: "preview", label: showPreview ? "プレビューを隠す" : "プレビューを表示", run: () => setPanels(showCanvas, !showPreview) },
@@ -806,6 +848,7 @@ export function App() {
         <span className="add-label">画面:</span>
         <select
           className="size-select"
+          disabled={!!editComp}
           value={CANVAS_PRESETS.find((p) => p.w === doc.canvas.width && p.h === doc.canvas.height)?.label ?? ""}
           onChange={(e) => {
             const p = CANVAS_PRESETS.find((x) => x.label === e.target.value);
@@ -819,9 +862,9 @@ export function App() {
             </option>
           ))}
         </select>
-        <input className="size-num" type="number" value={doc.canvas.width} onChange={(e) => onPatchCanvas({ width: Math.max(1, Number(e.target.value)) })} />
+        <input className="size-num" type="number" disabled={!!editComp} value={doc.canvas.width} onChange={(e) => onPatchCanvas({ width: Math.max(1, Number(e.target.value)) })} />
         <span className="size-x">×</span>
-        <input className="size-num" type="number" value={doc.canvas.height} onChange={(e) => onPatchCanvas({ height: Math.max(1, Number(e.target.value)) })} />
+        <input className="size-num" type="number" disabled={!!editComp} value={doc.canvas.height} onChange={(e) => onPatchCanvas({ height: Math.max(1, Number(e.target.value)) })} />
         <span className="add-label">ズーム:</span>
         <select className="size-select" value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
           {[0.25, 0.5, 0.75, 1, 1.5, 2].map((z) => (
@@ -860,6 +903,14 @@ export function App() {
               <button className="primary" disabled={busy || !genText.trim()} onClick={onGenerate}>{busy ? "生成中…" : "生成 (Ctrl+Enter)"}</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {editComp && (
+        <div className="edit-master-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 12px", background: "#7c3aed", color: "#fff", fontSize: 13 }}>
+          <span>◇ コンポーネント編集中: <strong>{baseDoc?.components?.[editComp]?.name ?? editComp}</strong>（変更は全インスタンスに反映されます）</span>
+          <div style={{ flex: 1 }} />
+          <button onClick={exitEditComponent}>← 画面に戻る</button>
         </div>
       )}
 
@@ -922,9 +973,11 @@ export function App() {
           ) : rightTab === "components" ? (
             <ComponentsPanel
               components={doc.components}
-              selectionCount={selectedIds.filter((id) => id !== doc.root.id).length}
+              selectionCount={editComp ? 0 : selectedIds.filter((id) => id !== doc.root.id).length}
+              editingId={editComp}
               onCreateFromSelection={onCreateComponent}
               onPlace={onPlaceInstance}
+              onEdit={onEditComponent}
               onRename={onRenameComponent}
               onDelete={onDeleteComponent}
             />
