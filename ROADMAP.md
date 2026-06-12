@@ -27,10 +27,9 @@ no runtime behavior** — but within that scope we aim for parity. Below, ✅ do
 - ⬜ Blend modes, per-corner radius, stroke align
 
 ## Components & systems
-- ✅ **Components / instances** (define from selection, reuse, place; per-node overrides)
+- ✅ **Components / instances** (define from selection, reuse, place; per-node overrides; edit-master-in-place)
 - 🟡 **Design tokens / variables** (color tokens shipped, referenced by `{name}`; spacing/type scales next)
-- ⬜ Edit-master-in-place (today: override per instance; recreate to change geometry), variants (button states)
-- ⬜ Shared/text styles
+- ⬜ Variants (e.g. button states), shared/text styles
 
 ## Vector & shapes
 - 🟡 Rectangle, divider, icon (emoji/glyph)
@@ -79,7 +78,7 @@ file as a static visual truth for the AI.
 1. ✅ **Components + design tokens** — shipped (color tokens, components/instances/overrides).
 2. ✅ **React/TSX codegen** — shipped.
 3. ✅ **Distance badges, 8-handle resize, reparent-by-drag** — shipped. (Rulers/guides still open.)
-4. **Spacing/type tokens + edit-master-in-place** — finish the component/token system.
+4. **Spacing/type tokens** — extend the token system beyond color.
 5. **AI diff/approve + selection-scoped edits** — make the AI loop trustworthy.
 6. *(Maybe, later)* **Lite multi-frame + static flow map** — only the no-behavior
    subset above. Reassess demand first; do NOT build interactive prototyping.
