@@ -10,9 +10,40 @@
     "version": { "const": "0.1" },
     "name": { "type": "string", "default": "Untitled" },
     "canvas": { "$ref": "#/$defs/canvas" },
+    "tokens": { "$ref": "#/$defs/tokens" },
+    "components": {
+      "type": "object",
+      "description": "Reusable component definitions, keyed by component id. Place them with an Instance node.",
+      "additionalProperties": { "$ref": "#/$defs/componentDef" }
+    },
     "root": { "$ref": "#/$defs/node" }
   },
   "$defs": {
+    "tokens": {
+      "type": "object",
+      "description": "Design tokens. A style color set to \"{name}\" references tokens.colors[name].",
+      "additionalProperties": false,
+      "properties": {
+        "colors": { "type": "object", "additionalProperties": { "type": "string" }, "description": "name -> CSS color." }
+      }
+    },
+    "componentDef": {
+      "type": "object",
+      "required": ["name", "root"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "root": { "$ref": "#/$defs/node" }
+      }
+    },
+    "override": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "props": { "$ref": "#/$defs/props" },
+        "style": { "$ref": "#/$defs/style" }
+      }
+    },
     "canvas": {
       "type": "object",
       "additionalProperties": false,
@@ -35,14 +66,14 @@
       }
     },
     "nodeType": {
-      "enum": ["Frame", "Text", "Button", "Image", "Input", "Rectangle", "Link", "Textarea", "Checkbox", "Switch", "Select", "Divider", "Badge", "Avatar", "List", "Accordion", "NavBar", "Embed", "Icon", "ProgressBar"]
+      "enum": ["Frame", "Text", "Button", "Image", "Input", "Rectangle", "Link", "Textarea", "Checkbox", "Switch", "Select", "Divider", "Badge", "Avatar", "List", "Accordion", "NavBar", "Embed", "Icon", "ProgressBar", "Instance"]
     },
     "style": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "background": { "type": "string", "description": "Any CSS color or gradient." },
-        "color": { "type": "string" },
+        "background": { "type": "string", "description": "Any CSS color or gradient, or a token reference \"{name}\"." },
+        "color": { "type": "string", "description": "Any CSS color, or a token reference \"{name}\"." },
         "fontSize": { "type": "number" },
         "fontWeight": { "type": ["number", "string"] },
         "fontFamily": { "type": "string" },
@@ -119,7 +150,13 @@
         "comments": { "type": "array", "items": { "$ref": "#/$defs/comment" } },
         "locked": { "type": "boolean", "description": "Editor-only." },
         "hidden": { "type": "boolean", "description": "Editor-only; skipped by codegen." },
-        "children": { "type": "array", "items": { "$ref": "#/$defs/node" } }
+        "children": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "componentId": { "type": "string", "description": "Instance only: the component definition this resolves." },
+        "overrides": {
+          "type": "object",
+          "description": "Instance only: per-inner-node overrides, keyed by the inner node's id.",
+          "additionalProperties": { "$ref": "#/$defs/override" }
+        }
       }
     }
   }

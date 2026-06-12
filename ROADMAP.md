@@ -13,10 +13,11 @@ no runtime behavior** — but within that scope we aim for parity. Below, ✅ do
 - ✅ Marquee multi-select, Ctrl-click, group move, align, distribute
 - ✅ Undo/redo, copy/paste/duplicate, group/ungroup, lock/hide, z-order
 - ✅ Numeric-expression inputs, double-click inline text edit, command palette
+- ✅ Multi-handle resize (8 handles), smart distance badges (Alt-measure), reparent by drag-into-frame
 - 🟡 Auto-layout (flex exists; needs hug/fill sizing, on-canvas padding handles)
-- ⬜ Rulers & draggable guides, pixel grid snap toggle, smart distance badges (Alt-measure)
-- ⬜ Rotate, flip, multi-handle resize (8 handles), constraints/pinning
-- ⬜ Nudge-to-reorder layers by drag, reparent by drag-into-frame
+- ⬜ Rulers & draggable guides, pixel grid snap toggle
+- ⬜ Rotate, flip, constraints/pinning
+- ⬜ Nudge-to-reorder layers by drag
 
 ## Styling
 - ✅ Fill (solid + gradient presets), color palette / recent / document colors / eyedropper
@@ -26,9 +27,9 @@ no runtime behavior** — but within that scope we aim for parity. Below, ✅ do
 - ⬜ Blend modes, per-corner radius, stroke align
 
 ## Components & systems
-- ⬜ **Components / instances** (define once, reuse; override props) — biggest gap
-- ⬜ **Design tokens / variables** (color, spacing, type scales) referenced by name
-- ⬜ Shared/text styles, variants (e.g. button states)
+- ✅ **Components / instances** (define from selection, reuse, place; per-node overrides; edit-master-in-place)
+- 🟡 **Design tokens / variables** (color tokens shipped, referenced by `{name}`; spacing/type scales next)
+- ⬜ Variants (e.g. button states), shared/text styles
 
 ## Vector & shapes
 - 🟡 Rectangle, divider, icon (emoji/glyph)
@@ -57,9 +58,11 @@ file as a static visual truth for the AI.
 
 ## Codegen & handoff
 - ✅ HTML codegen, live preview, HTML export
+- ✅ **React/TSX codegen** (named components per definition; `--target react` / `generate_react`)
+- ✅ Design-token export (CSS variables in HTML/React output)
 - ✅ AI handoff pack (description + IR + HTML)
-- 🟡 Inspect/measure (canvas badges exist; needs a spec/measure mode)
-- ⬜ **React/TSX codegen**, design-token export, PNG/SVG export, copy-as-CSS
+- ✅ Inspect/measure (Alt-measure distance badges)
+- ⬜ PNG/SVG export, copy-as-CSS
 
 ## AI
 - ✅ Generate screen from prompt (BYOA claude) → IR
@@ -72,11 +75,12 @@ file as a static visual truth for the AI.
 - ⬜ Template gallery with thumbnails, docs site, live demo
 
 ## Suggested next milestones
-1. **Components + design tokens** — the highest-leverage parity gap; also makes IR far better for AI.
-2. **React/TSX codegen** — completes "design → real code".
-3. **Rulers/guides, distance badges, 8-handle resize, reparent-by-drag** — daily-driver polish.
-4. **AI diff/approve + selection-scoped edits** — make the AI loop trustworthy.
-5. *(Maybe, later)* **Lite multi-frame + static flow map** — only the no-behavior
+1. ✅ **Components + design tokens** — shipped (color tokens, components/instances/overrides).
+2. ✅ **React/TSX codegen** — shipped.
+3. ✅ **Distance badges, 8-handle resize, reparent-by-drag** — shipped. (Rulers/guides still open.)
+4. **Spacing/type tokens** — extend the token system beyond color.
+5. **AI diff/approve + selection-scoped edits** — make the AI loop trustworthy.
+6. *(Maybe, later)* **Lite multi-frame + static flow map** — only the no-behavior
    subset above. Reassess demand first; do NOT build interactive prototyping.
 
 > Positioning note: our wedge is **browser-only, IDE-independent, BYOA ($0 ops),

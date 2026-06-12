@@ -1,0 +1,96 @@
+{
+  "version": "0.1",
+  "name": "Tokens & Components Demo",
+  "canvas": { "width": 800, "height": 480, "background": "{surface}" },
+  "tokens": {
+    "colors": {
+      "brand": "#2563eb",
+      "surface": "#f8fafc",
+      "ink": "#0f172a",
+      "muted": "#64748b"
+    }
+  },
+  "components": {
+    "card": {
+      "name": "Feature Card",
+      "root": {
+        "id": "card_root",
+        "type": "Frame",
+        "name": "Card",
+        "frame": { "x": 0, "y": 0, "w": 220, "h": 160 },
+        "style": { "background": "#ffffff", "borderRadius": 12, "border": "1px solid #e2e8f0", "shadow": "0 4px 12px rgba(0,0,0,0.06)" },
+        "children": [
+          {
+            "id": "card_title",
+            "type": "Text",
+            "name": "Title",
+            "frame": { "x": 16, "y": 16, "w": 188, "h": 28 },
+            "props": { "text": "Feature" },
+            "style": { "fontSize": 18, "fontWeight": 700, "color": "{ink}" }
+          },
+          {
+            "id": "card_body",
+            "type": "Text",
+            "name": "Body",
+            "frame": { "x": 16, "y": 52, "w": 188, "h": 48 },
+            "props": { "text": "Short description of the feature goes here." },
+            "style": { "fontSize": 13, "color": "{muted}", "lineHeight": 1.4 }
+          },
+          {
+            "id": "card_cta",
+            "type": "Button",
+            "name": "CTA",
+            "frame": { "x": 16, "y": 108, "w": 120, "h": 36 },
+            "props": { "label": "詳しく見る", "variant": "primary" },
+            "style": { "background": "{brand}", "color": "#ffffff", "borderRadius": 8, "border": "none", "fontSize": 14 }
+          }
+        ]
+      }
+    }
+  },
+  "root": {
+    "id": "root",
+    "type": "Frame",
+    "name": "Screen",
+    "frame": { "x": 0, "y": 0, "w": 800, "h": 480 },
+    "children": [
+      {
+        "id": "heading",
+        "type": "Text",
+        "name": "Heading",
+        "frame": { "x": 40, "y": 36, "w": 720, "h": 40 },
+        "props": { "text": "デザイントークン & コンポーネント" },
+        "style": { "fontSize": 28, "fontWeight": 800, "color": "{ink}" }
+      },
+      {
+        "id": "card_1",
+        "type": "Instance",
+        "name": "Card 1",
+        "componentId": "card",
+        "frame": { "x": 40, "y": 110, "w": 220, "h": 160 }
+      },
+      {
+        "id": "card_2",
+        "type": "Instance",
+        "name": "Card 2",
+        "componentId": "card",
+        "frame": { "x": 290, "y": 110, "w": 220, "h": 160 },
+        "overrides": {
+          "card_title": { "props": { "text": "Tokens" } },
+          "card_body": { "props": { "text": "Change a color token once and every instance updates." } }
+        }
+      },
+      {
+        "id": "card_3",
+        "type": "Instance",
+        "name": "Card 3",
+        "componentId": "card",
+        "frame": { "x": 540, "y": 110, "w": 220, "h": 160 },
+        "overrides": {
+          "card_title": { "props": { "text": "Reuse" } },
+          "card_cta": { "style": { "background": "{ink}" } }
+        }
+      }
+    ]
+  }
+}

@@ -1,8 +1,9 @@
 # Drafter
 
 **An IR-centric UI design tool.** Lay out any single screen in a GUI, compile it
-to code (HTML today), and hand the `design.json` to an AI as a precise visual
+to code (HTML & React), and hand the `design.json` to an AI as a precise visual
 spec. Designed so that **humans, the GUI, and AI all edit one source of truth.**
+Reusable **components** and **design tokens** keep the IR DRY and re-themeable.
 
 > GUI で1画面を作り込み → コードへコンパイル → `design.json` を「曖昧さのない視覚仕様」として AI に渡す。
 > AI ⇄ GUI ⇄ コード を、すべて **1つの中間表現 (IR)** を中心に往復できます。

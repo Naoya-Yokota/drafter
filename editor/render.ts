@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
-import type { Layout, Node, Style } from "../src/ir/schema.ts";
+import type { Layout, Node, Style, Tokens } from "../src/ir/schema.ts";
+import { resolveColorToLiteral } from "../src/ir/tokens.ts";
 
 const ALIGN: Record<string, string> = { start: "flex-start", center: "center", end: "flex-end", stretch: "stretch" };
 const JUSTIFY: Record<string, string> = { start: "flex-start", center: "center", end: "flex-end", between: "space-between" };
@@ -26,23 +27,24 @@ export function isFlex(node: Node): boolean {
  * canvas is true WYSIWYG: what you drag here is exactly what generateHtml emits.
  * The canonical output is still html.ts — this only mirrors it for interaction.
  */
-export function styleToCss(style: Style | undefined): CSSProperties {
+export function styleToCss(style: Style | undefined, tokens?: Tokens): CSSProperties {
   const out: CSSProperties = {};
   if (!style) return out;
-  if (style.background) out.background = style.background;
-  if (style.color) out.color = style.color;
+  // Resolve color tokens to their literal value so the canvas is true WYSIWYG.
+  if (style.background) out.background = resolveColorToLiteral(style.background, tokens);
+  if (style.color) out.color = resolveColorToLiteral(style.color, tokens);
   if (style.fontSize != null) out.fontSize = style.fontSize;
   if (style.fontWeight != null) out.fontWeight = style.fontWeight as CSSProperties["fontWeight"];
   if (style.fontFamily) out.fontFamily = style.fontFamily;
   if (style.textAlign) out.textAlign = style.textAlign;
   if (style.borderRadius != null) out.borderRadius = style.borderRadius;
-  if (style.border) out.border = style.border;
+  if (style.border) out.border = resolveColorToLiteral(style.border, tokens);
   if (style.opacity != null) out.opacity = style.opacity;
   if (style.shadow) out.boxShadow = style.shadow;
   return out;
 }
 
-export function nodeBoxStyle(node: Node): CSSProperties {
+export function nodeBoxStyle(node: Node, tokens?: Tokens): CSSProperties {
   const f = node.frame;
   return {
     position: "absolute",
@@ -50,7 +52,7 @@ export function nodeBoxStyle(node: Node): CSSProperties {
     top: f.y,
     width: f.w,
     height: f.h,
-    ...styleToCss(node.style),
+    ...styleToCss(node.style, tokens),
   };
 }
 

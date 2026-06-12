@@ -17,9 +17,13 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Unit tests
+        run: npm test
       - name: Validate templates against the IR schema
         run: npm run validate
       - name: Build editor
         run: npm run build
       - name: Generate example HTML (codegen smoke test)
         run: node src/cli.ts examples/design.json out
+      - name: Generate React (codegen smoke test)
+        run: node src/cli.ts examples/tokens-demo.json out --target react

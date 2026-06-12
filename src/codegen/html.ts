@@ -1,4 +1,9 @@
-import type { Document, Node, Style } from "../ir/schema.ts";
+import type { Document, Node, Style, Tokens } from "../ir/schema.ts";
+import { resolveColorToCss, tokenRootCss } from "../ir/tokens.ts";
+import { materializeInstance } from "../ir/instance.ts";
+
+/** Per-render context threaded through the recursion (component lookup + tokens). */
+type Ctx = { doc: Document; tokens?: Tokens };
 
 /**
  * HTML code generator: IR -> a standalone HTML string.
@@ -20,17 +25,17 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function styleToCss(style: Style | undefined, extra: Record<string, string>): string {
+function styleToCss(style: Style | undefined, extra: Record<string, string>, tokens?: Tokens): string {
   const out: Record<string, string> = { ...extra };
   if (style) {
-    if (style.background) out["background"] = style.background;
-    if (style.color) out["color"] = style.color;
+    if (style.background) out["background"] = resolveColorToCss(style.background, tokens)!;
+    if (style.color) out["color"] = resolveColorToCss(style.color, tokens)!;
     if (style.fontSize != null) out["font-size"] = `${style.fontSize}px`;
     if (style.fontWeight != null) out["font-weight"] = String(style.fontWeight);
     if (style.fontFamily) out["font-family"] = style.fontFamily;
     if (style.textAlign) out["text-align"] = style.textAlign;
     if (style.borderRadius != null) out["border-radius"] = `${style.borderRadius}px`;
-    if (style.border) out["border"] = style.border;
+    if (style.border) out["border"] = resolveColorToCss(style.border, tokens)!;
     if (style.opacity != null) out["opacity"] = String(style.opacity);
     if (style.shadow) out["box-shadow"] = style.shadow;
     if (style.overflow) out["overflow"] = style.overflow;
@@ -108,17 +113,28 @@ function initials(name: string): string {
   return (parts.length > 1 ? parts[0][0] + parts[1][0] : t.slice(0, 2)).toUpperCase();
 }
 
-function renderNode(node: Node, depth: number, parentFlex: boolean): string {
+function renderNode(node: Node, depth: number, parentFlex: boolean, ctx: Ctx): string {
   const pad = "  ".repeat(depth);
+
+  // An Instance resolves to its component subtree (overrides + namespaced ids).
+  if (node.type === "Instance") {
+    const m = materializeInstance(ctx.doc, node);
+    if (!m) {
+      const css = styleToCss(node.style, positionCss(node, parentFlex), ctx.tokens);
+      return `${pad}<div id="${esc(node.id)}" style="${esc(css)}" class="drafter-missing">missing component: ${esc(node.componentId ?? "")}</div>`;
+    }
+    return renderNode(m, depth, parentFlex, ctx);
+  }
+
   const flex = node.layout?.mode === "flex";
   const hasKids = (node.children?.length ?? 0) > 0;
-  const css = styleToCss(node.style, { ...positionCss(node, parentFlex), ...flexContainerCss(node.layout), ...contentCss(node, hasKids) });
+  const css = styleToCss(node.style, { ...positionCss(node, parentFlex), ...flexContainerCss(node.layout), ...contentCss(node, hasKids) }, ctx.tokens);
   const idAttr = ` id="${esc(node.id)}"`;
   const styleAttr = ` style="${esc(css)}"`;
   const p = node.props ?? {};
   const childHtml = (node.children ?? [])
     .filter((c) => !c.hidden)
-    .map((c) => renderNode(c, depth + 1, flex))
+    .map((c) => renderNode(c, depth + 1, flex, ctx))
     .join("\n");
   const inner = childHtml ? `\n${childHtml}\n${pad}` : "";
 
@@ -234,10 +250,12 @@ const COMPONENT_CSS = `
     .drafter-icon { display: flex; align-items: center; justify-content: center; line-height: 1; }
     .drafter-progress { background: #e5e7eb; border-radius: 999px; overflow: hidden; }
     .drafter-progress-fill { height: 100%; background: #2563eb; border-radius: 999px; }
+    .drafter-missing { display: flex; align-items: center; justify-content: center; color: #b91c1c; background: repeating-linear-gradient(45deg, #fef2f2, #fef2f2 8px, #fee2e2 8px, #fee2e2 16px); border: 1px dashed #ef4444; font-size: 12px; }
 `;
 
 export function generateHtml(doc: Document): string {
   const c = doc.canvas;
+  const ctx: Ctx = { doc, tokens: doc.tokens };
   const rootCss = styleToCss(undefined, {
     position: "relative",
     width: `${c.width}px`,
@@ -246,7 +264,7 @@ export function generateHtml(doc: Document): string {
     margin: "0 auto",
     overflow: "hidden",
   });
-  const body = renderNode(doc.root, 3, false);
+  const body = renderNode(doc.root, 3, false, ctx);
   return `<!doctype html>
 <html lang="ja">
 <head>
@@ -254,7 +272,7 @@ export function generateHtml(doc: Document): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${esc(doc.name)}</title>
   <style>
-    * { box-sizing: border-box; }
+${tokenRootCss(doc.tokens)}    * { box-sizing: border-box; }
     body { margin: 0; background: #f4f4f5; font-family: system-ui, sans-serif; }
     .drafter-canvas * { margin: 0; }
     .drafter-canvas p { line-height: 1.2; }

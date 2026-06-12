@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { Node, Style, Layout, Props as NodeProps } from "../../src/ir/schema.ts";
+import type { Document, Node, Style, Layout, Tokens, Props as NodeProps } from "../../src/ir/schema.ts";
+import { instanceOverrideTargets } from "../../src/ir/instance.ts";
 import { ColorField } from "./ColorField.tsx";
 
 type Patch = Partial<Node>;
@@ -8,11 +9,14 @@ export type AlignEdge = "left" | "hcenter" | "right" | "top" | "vcenter" | "bott
 
 type Props = {
   node: Node | null;
+  doc?: Document;
   busy: boolean;
   docColors: string[];
+  tokens?: Tokens;
   onPatch: (id: string, patch: Patch) => void;
   onDelete: (id: string) => void;
   onAlign: (id: string, edge: AlignEdge) => void;
+  onSetOverride?: (instanceId: string, innerId: string, patch: { props?: NodeProps; style?: Style }) => void;
   onAddComment: (id: string, text: string) => void;
   onResolveComment: (id: string, commentId: string, resolved: boolean) => void;
   onAiResolve: (id: string) => void;
@@ -104,7 +108,7 @@ function AreaRow({ label, value, onChange }: { label: string; value: string; onC
   );
 }
 
-export function Inspector({ node, busy, docColors, onPatch, onDelete, onAlign, onAddComment, onResolveComment, onAiResolve }: Props) {
+export function Inspector({ node, doc, busy, docColors, tokens, onPatch, onDelete, onAlign, onSetOverride, onAddComment, onResolveComment, onAiResolve }: Props) {
   const [draft, setDraft] = useState("");
   if (!node) return <div className="inspector empty">ノードを選択してください</div>;
 
@@ -137,6 +141,31 @@ export function Inspector({ node, busy, docColors, onPatch, onDelete, onAlign, o
         <NumberRow label="w" value={node.frame.w} onChange={(v) => setFrame("w", v)} />
         <NumberRow label="h" value={node.frame.h} onChange={(v) => setFrame("h", v)} />
       </div>
+
+      {node.type === "Instance" && doc && onSetOverride && (
+        <>
+          <h4>コンポーネント上書き</h4>
+          <p className="hint" style={{ margin: "0 0 6px" }}>定義: {doc.components?.[node.componentId ?? ""]?.name ?? "（不明）"}</p>
+          {(() => {
+            const targets = instanceOverrideTargets(doc, node);
+            if (!targets.length) return <p className="hint">上書きできるテキストがありません</p>;
+            return targets.map((t) => {
+              const ov = node.overrides?.[t.id];
+              const textKey: keyof NodeProps = t.props?.text != null ? "text" : t.props?.label != null ? "label" : "title";
+              const orig = (t.props?.[textKey] as string) ?? "";
+              const cur = (ov?.props?.[textKey] as string) ?? orig;
+              const curColor = ov?.style?.color ?? t.style?.color;
+              return (
+                <div key={t.id} style={{ borderTop: "1px solid #eee", paddingTop: 6, marginTop: 6 }}>
+                  <div className="hint" style={{ margin: 0 }}>{t.name ?? t.type}</div>
+                  <TextRow label={textKey} value={cur} onChange={(v) => onSetOverride(node.id, t.id, { props: { [textKey]: v } as NodeProps })} />
+                  <ColorField label="color" value={curColor} tokens={tokens} docColors={docColors} onChange={(v) => onSetOverride(node.id, t.id, { style: { color: v } })} />
+                </div>
+              );
+            });
+          })()}
+        </>
+      )}
 
       <h4>Props</h4>
       {node.type === "Text" && (
@@ -215,8 +244,8 @@ export function Inspector({ node, busy, docColors, onPatch, onDelete, onAlign, o
       )}
 
       <h4>Style</h4>
-      <ColorField label="background" value={s.background} docColors={docColors} onChange={(v) => setStyle({ background: v })} />
-      <ColorField label="color（文字）" value={s.color} docColors={docColors} onChange={(v) => setStyle({ color: v })} />
+      <ColorField label="background" value={s.background} docColors={docColors} tokens={tokens} onChange={(v) => setStyle({ background: v })} />
+      <ColorField label="color（文字）" value={s.color} docColors={docColors} tokens={tokens} onChange={(v) => setStyle({ color: v })} />
       <NumberRow label="fontSize" value={s.fontSize ?? 0} onChange={(v) => setStyle({ fontSize: v || undefined })} />
       <NumberRow label="borderRadius" value={s.borderRadius ?? 0} onChange={(v) => setStyle({ borderRadius: v || undefined })} />
       <NumberRow label="padding" value={s.padding ?? 0} onChange={(v) => setStyle({ padding: v || undefined })} />
