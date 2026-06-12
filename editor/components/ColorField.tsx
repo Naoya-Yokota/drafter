@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from "react";
+import type { Tokens } from "../../src/ir/schema.ts";
+import { isTokenRef, resolveColorToLiteral } from "../../src/ir/tokens.ts";
 
 type Props = {
   label: string;
   value: string | undefined;
   onChange: (v: string | undefined) => void;
   docColors?: string[];
+  tokens?: Tokens;
 };
 
 const PALETTE = [
@@ -38,9 +41,12 @@ function asHex(v: string | undefined): string {
   return v && /^#[0-9a-f]{6}$/i.test(v) ? v : "#000000";
 }
 
-export function ColorField({ label, value, onChange, docColors = [] }: Props) {
+export function ColorField({ label, value, onChange, docColors = [], tokens }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const tokenName = value ? isTokenRef(value) : null;
+  const swatchBg = tokenName ? resolveColorToLiteral(value, tokens) : value;
+  const tokenEntries = Object.entries(tokens?.colors ?? {});
 
   useEffect(() => {
     if (!open) return;
@@ -82,12 +88,23 @@ export function ColorField({ label, value, onChange, docColors = [] }: Props) {
     <div className="row color-row" ref={ref}>
       <span>{label}</span>
       <div className="color-control">
-        <button type="button" className="swatch" style={{ background: value || "transparent" }} title="クリックで色を選択" onClick={() => setOpen((o) => !o)}>
+        <button type="button" className="swatch" style={{ background: swatchBg || "transparent" }} title={tokenName ? `トークン: ${tokenName}` : "クリックで色を選択"} onClick={() => setOpen((o) => !o)}>
           {!value && <span className="swatch-none">∅</span>}
+          {tokenName && <span className="swatch-none" style={{ color: "#fff", fontSize: 10, mixBlendMode: "difference" }}>◇</span>}
         </button>
         <input type="text" className="color-hex" value={value ?? ""} placeholder="none" onChange={(e) => onChange(e.target.value || undefined)} />
         {open && (
           <div className="color-pop">
+            {tokenEntries.length > 0 && (
+              <>
+                <div className="color-pop-label">トークン</div>
+                <div className="swatches">
+                  {tokenEntries.map(([name, val]) => (
+                    <button key={name} type="button" className={`sw${tokenName === name ? " on" : ""}`} style={{ background: val }} title={`{${name}}`} onClick={() => pick(`{${name}}`, true)} />
+                  ))}
+                </div>
+              </>
+            )}
             <div className="swatches">
               {PALETTE.map((c) => (
                 <button key={c} type="button" className={`sw${value?.toLowerCase() === c ? " on" : ""}`} style={{ background: c }} title={c} onClick={() => pick(c, true)} />

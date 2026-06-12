@@ -18,6 +18,9 @@ import {
   ungroupNode,
   documentColors,
   editableTextKey,
+  createComponentFromSelection,
+  placeInstance,
+  reparentNode,
   PALETTE,
   type ZOrderOp,
 } from "./store.ts";
@@ -25,6 +28,8 @@ import { useHistory } from "./history.ts";
 import { Canvas } from "./components/Canvas.tsx";
 import { Inspector, type AlignEdge } from "./components/Inspector.tsx";
 import { MultiInspector } from "./components/MultiInspector.tsx";
+import { TokensPanel } from "./components/TokensPanel.tsx";
+import { ComponentsPanel } from "./components/ComponentsPanel.tsx";
 import { Tree } from "./components/Tree.tsx";
 import { Preview } from "./components/Preview.tsx";
 import { ContextMenu, type MenuState } from "./components/ContextMenu.tsx";
@@ -73,6 +78,7 @@ export function App() {
   const clipboard = useRef<Node[]>([]);
   const styleClipboard = useRef<Style | null>(null);
   const [hasStyleClip, setHasStyleClip] = useState(false);
+  const [rightTab, setRightTab] = useState<"design" | "tokens" | "components">("design");
 
   const primaryId = selectedIds.length ? selectedIds[selectedIds.length - 1] : null;
 
@@ -443,6 +449,97 @@ export function App() {
     [doc, commit, touch],
   );
 
+  // Design tokens.
+  const onPatchTokens = useCallback(
+    (tokens: Document["tokens"]) => {
+      commit((cur) => ({ ...cur, tokens }));
+      touch();
+    },
+    [commit, touch],
+  );
+
+  // Components.
+  const onCreateComponent = useCallback(() => {
+    if (!doc) return;
+    commit((cur) => {
+      const res = createComponentFromSelection(cur, selectedIds);
+      if (!res) return cur;
+      setSelectedIds([res.instanceId]);
+      return res.doc;
+    });
+    setRightTab("components");
+    touch();
+  }, [doc, selectedIds, commit, touch]);
+
+  const onPlaceInstance = useCallback(
+    (componentId: string) => {
+      commit((cur) => {
+        const res = placeInstance(cur, componentId, { x: 24, y: 24 });
+        if (!res) return cur;
+        setSelectedIds([res.node.id]);
+        return withRoot(cur, addChild(cur.root, cur.root.id, res.node));
+      });
+      touch();
+    },
+    [commit, touch],
+  );
+
+  const onRenameComponent = useCallback(
+    (id: string, name: string) => {
+      commit((cur) => {
+        const def = cur.components?.[id];
+        if (!def) return cur;
+        return { ...cur, components: { ...cur.components, [id]: { ...def, name } } };
+      });
+      touch();
+    },
+    [commit, touch],
+  );
+
+  const onDeleteComponent = useCallback(
+    (id: string) => {
+      commit((cur) => {
+        if (!cur.components?.[id]) return cur;
+        const rest = { ...cur.components };
+        delete rest[id];
+        return { ...cur, components: Object.keys(rest).length ? rest : undefined };
+      });
+      touch();
+    },
+    [commit, touch],
+  );
+
+  // Per-instance override of an inner node (props/style merged).
+  const onSetOverride = useCallback(
+    (instanceId: string, innerId: string, patch: { props?: Node["props"]; style?: Style }) => {
+      commit((cur) => {
+        const inst = findNode(cur.root, instanceId);
+        if (!inst) return cur;
+        const prev = inst.overrides ?? {};
+        const prevOv = prev[innerId] ?? {};
+        const nextOv = {
+          props: { ...prevOv.props, ...patch.props },
+          style: { ...prevOv.style, ...patch.style },
+        };
+        return withRoot(cur, patchNode(cur.root, instanceId, { overrides: { ...prev, [innerId]: nextOv } }));
+      });
+      touch();
+    },
+    [commit, touch],
+  );
+
+  // Reparent a node into a Frame (drag-into-frame), keeping it put on screen.
+  const onReparent = useCallback(
+    (id: string, newParentId: string) => {
+      commit((cur) => {
+        const next = reparentNode(cur.root, id, newParentId);
+        return next ? withRoot(cur, next) : cur;
+      });
+      touch();
+    },
+    [commit, touch],
+  );
+
   // Comments.
   const onAddComment = useCallback(
     (id: string, text: string) => {
@@ -655,6 +752,7 @@ export function App() {
     { id: "save", label: "保存", hint: "Ctrl+S", run: onSave },
     { id: "group", label: "グループ化", hint: "Ctrl+G", run: onGroup },
     ...(primaryId ? [{ id: "ungroup", label: "グループ解除", hint: "Ctrl+Shift+G", run: () => onUngroup(primaryId) }] : []),
+    ...(selectedIds.filter((id) => id !== doc.root.id).length ? [{ id: "componentize", label: "◇ 選択をコンポーネント化", run: onCreateComponent }] : []),
     { id: "undo", label: "元に戻す", hint: "Ctrl+Z", run: () => { undo(); setDirty(true); } },
     { id: "redo", label: "やり直し", hint: "Ctrl+Shift+Z", run: () => { redo(); setDirty(true); } },
     { id: "preview", label: showPreview ? "プレビューを隠す" : "プレビューを表示", run: () => setPanels(showCanvas, !showPreview) },
@@ -790,6 +888,7 @@ export function App() {
                 onSelectMany={selectMany}
                 onPatchFrames={onPatchFrames}
                 onDuplicateDrop={onDuplicateDrop}
+                onReparent={onReparent}
                 onContextNode={(e, id) => { if (!selectedIds.includes(id)) selectOnly(id); setMenu({ x: e.clientX, y: e.clientY, id }); }}
                 onEditText={onEditText}
                 onZoom={setZoom}
@@ -813,16 +912,35 @@ export function App() {
         </main>
 
         <aside className="right">
-          {selectedIds.length > 1 ? (
+          <div className="seg right-tabs">
+            <button className={rightTab === "design" ? "on" : ""} onClick={() => setRightTab("design")}>デザイン</button>
+            <button className={rightTab === "tokens" ? "on" : ""} onClick={() => setRightTab("tokens")}>トークン</button>
+            <button className={rightTab === "components" ? "on" : ""} onClick={() => setRightTab("components")}>部品</button>
+          </div>
+          {rightTab === "tokens" ? (
+            <TokensPanel tokens={doc.tokens} onChange={onPatchTokens} />
+          ) : rightTab === "components" ? (
+            <ComponentsPanel
+              components={doc.components}
+              selectionCount={selectedIds.filter((id) => id !== doc.root.id).length}
+              onCreateFromSelection={onCreateComponent}
+              onPlace={onPlaceInstance}
+              onRename={onRenameComponent}
+              onDelete={onDeleteComponent}
+            />
+          ) : selectedIds.length > 1 ? (
             <MultiInspector count={selectedIds.length} onAlignSelection={onAlignSelection} onDistributeSelection={onDistributeSelection} onDeleteSelection={onDeleteSelection} />
           ) : (
             <Inspector
               node={primary}
+              doc={doc}
               busy={busy}
               docColors={docColors}
+              tokens={doc.tokens}
               onPatch={onPatch}
               onDelete={onDelete}
               onAlign={onAlign}
+              onSetOverride={onSetOverride}
               onAddComment={onAddComment}
               onResolveComment={onResolveComment}
               onAiResolve={onAiResolve}

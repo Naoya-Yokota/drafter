@@ -45,6 +45,20 @@ export const Style = z
   .strict();
 export type Style = z.infer<typeof Style>;
 
+/**
+ * Design tokens — named values referenced by nodes so a palette change ripples
+ * everywhere at once. v1 covers colors; a style field set to "{name}" resolves
+ * against `colors`. Codegen emits these as CSS variables (var(--color-name)) so
+ * the link stays live in generated HTML/React; the canvas resolves to the literal
+ * value for WYSIWYG. The object shape is intentionally open for spacing/type later.
+ */
+export const Tokens = z
+  .object({
+    colors: z.record(z.string()).optional(), // name -> "#hex" | "rgb(...)" | ...
+  })
+  .strict();
+export type Tokens = z.infer<typeof Tokens>;
+
 export const Layout = z
   .object({
     mode: z.enum(["absolute", "flex"]).default("absolute"),
@@ -88,6 +102,7 @@ export const NodeType = z.enum([
   "Embed", // -> <iframe> (map / video / generic embed)
   "Icon", // -> centered glyph/emoji
   "ProgressBar", // -> track + fill
+  "Instance", // -> resolves a component definition (doc.components[componentId])
 ]);
 export type NodeType = z.infer<typeof NodeType>;
 
@@ -112,6 +127,15 @@ export const Props = z
   .strict();
 export type Props = z.infer<typeof Props>;
 
+/** Per-instance override of an inner node, keyed by the inner node's id. */
+export interface NodeOverride {
+  props?: Props;
+  style?: Style;
+}
+export const NodeOverride = z
+  .object({ props: Props.optional(), style: Style.optional() })
+  .strict();
+
 // Nodes are recursive, so the type is declared explicitly and the schema
 // uses z.lazy for the children field.
 export interface Node {
@@ -128,6 +152,10 @@ export interface Node {
   /** Editor-only: hidden on the canvas and skipped by codegen. */
   hidden?: boolean;
   children?: Node[];
+  /** Instance only: which component definition this resolves. */
+  componentId?: string;
+  /** Instance only: overrides applied to inner nodes (by their id). */
+  overrides?: Record<string, NodeOverride>;
 }
 
 // Input type is `unknown` because nested defaults (Comment, Layout) make the
@@ -147,9 +175,15 @@ export const Node: z.ZodType<Node, z.ZodTypeDef, unknown> = z.lazy(() =>
       locked: z.boolean().optional(),
       hidden: z.boolean().optional(),
       children: z.array(Node).optional(),
+      componentId: z.string().optional(),
+      overrides: z.record(NodeOverride).optional(),
     })
     .strict()
 );
+
+/** A reusable component definition: a named node subtree in its own coord space. */
+export const ComponentDef = z.object({ name: z.string(), root: Node }).strict();
+export type ComponentDef = z.infer<typeof ComponentDef>;
 
 export const Canvas = z
   .object({
@@ -165,6 +199,8 @@ export const Document = z
     version: z.literal("0.1"),
     name: z.string().default("Untitled"),
     canvas: Canvas,
+    tokens: Tokens.optional(),
+    components: z.record(ComponentDef).optional(),
     root: Node,
   })
   .strict();
@@ -179,6 +215,12 @@ export function parseDocument(raw: unknown): Document {
 export function* walk(node: Node): Generator<Node> {
   yield node;
   for (const child of node.children ?? []) yield* walk(child);
+}
+
+/** Walk every node in the document — the main root and every component root. */
+export function* walkDoc(doc: Document): Generator<Node> {
+  yield* walk(doc.root);
+  for (const c of Object.values(doc.components ?? {})) yield* walk(c.root);
 }
 
 /** All unresolved comments across the document, with their owning node. */

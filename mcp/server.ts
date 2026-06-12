@@ -16,6 +16,7 @@ import { resolve, relative, isAbsolute, join } from "node:path";
 import process from "node:process";
 import { parseDocument, type Document, type Node } from "../src/ir/schema.ts";
 import { generateHtml } from "../src/codegen/html.ts";
+import { generateReact } from "../src/codegen/react.ts";
 import { describeDoc, buildAiPack } from "../editor/aiexport.ts";
 
 const ROOT = resolve(process.argv[2] ?? process.env.DRAFTER_ROOT ?? process.cwd());
@@ -158,6 +159,12 @@ const TOOLS: Tool[] = [
     description: "Generate standalone HTML from a design (by path or inline). Pure IR->HTML, no AI.",
     inputSchema: obj({ path: str("Path relative to project root."), design: anyObj("Inline IR object (alternative to path).") }),
     handler: (a) => generateHtml(getDoc(a)),
+  },
+  {
+    name: "generate_react",
+    description: "Generate a self-contained React/TSX component from a design (by path or inline). Component definitions become named React functions; instances call them. Pure IR->TSX, no AI.",
+    inputSchema: obj({ path: str("Path relative to project root."), design: anyObj("Inline IR object (alternative to path).") }),
+    handler: (a) => generateReact(getDoc(a)),
   },
   {
     name: "describe_design",

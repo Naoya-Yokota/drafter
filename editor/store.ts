@@ -1,4 +1,4 @@
-import type { Document, Node, NodeType, Props } from "../src/ir/schema.ts";
+import type { Document, Node, NodeType, Props, ComponentDef } from "../src/ir/schema.ts";
 
 /** Which prop a node's on-canvas double-click edits, or null if not editable. */
 const TEXT_PROP_KEY: Partial<Record<NodeType, keyof Props>> = {
@@ -179,6 +179,7 @@ const DEFAULTS: Record<NodeType, Partial<Node>> = {
   },
   Icon: { props: { text: "★" }, style: { fontSize: 32, color: "#2563eb" } },
   ProgressBar: { props: { value: 60 }, style: { background: "#e5e7eb", borderRadius: 999 } },
+  Instance: {}, // created from a selection via createComponentFromSelection, not the palette
 };
 
 const DEFAULT_SIZE: Record<NodeType, { w: number; h: number }> = {
@@ -202,6 +203,7 @@ const DEFAULT_SIZE: Record<NodeType, { w: number; h: number }> = {
   Embed: { w: 320, h: 220 },
   Icon: { w: 48, h: 48 },
   ProgressBar: { w: 240, h: 10 },
+  Instance: { w: 200, h: 120 }, // overridden by the component's natural size on creation
 };
 
 /** Component palette grouped for the toolbar's add menu. */
@@ -279,6 +281,106 @@ export function groupNodes(root: Node, ids: string[]): { root: Node; groupId: st
   for (const id of real) next = removeNode(next, id);
   next = addChild(next, parent.id, group);
   return { root: next, groupId: group.id };
+}
+
+/** Replace the node with `id` in-place (preserving sibling order). */
+export function replaceNode(node: Node, id: string, repl: Node): Node {
+  if (!node.children) return node;
+  return { ...node, children: node.children.map((c) => (c.id === id ? repl : replaceNode(c, id, repl))) };
+}
+
+let compCounter = 0;
+function freshComponentId(): string {
+  compCounter += 1;
+  return `comp_${Date.now().toString(36)}_${compCounter}`;
+}
+
+/**
+ * Turn the current selection into a reusable component definition and replace it
+ * with an Instance of that component. A single node becomes the component root
+ * directly; multiple nodes are wrapped in a Frame at their bounding box. Inner
+ * ids are KEPT (not regenerated) so per-instance overrides can key on them.
+ */
+export function createComponentFromSelection(
+  doc: Document,
+  ids: string[],
+): { doc: Document; instanceId: string; componentId: string } | null {
+  const real = ids.filter((id) => id !== doc.root.id && findNode(doc.root, id));
+  if (real.length === 0) return null;
+  const componentId = freshComponentId();
+  const instanceId = freshId("Instance");
+
+  if (real.length === 1) {
+    const node = findNode(doc.root, real[0])!;
+    const name = node.name ?? node.type;
+    const compRoot: Node = { ...structuredClone(node), frame: { x: 0, y: 0, w: node.frame.w, h: node.frame.h } };
+    const instance: Node = { id: instanceId, type: "Instance", name, componentId, frame: { ...node.frame } };
+    const def: ComponentDef = { name, root: compRoot };
+    return {
+      doc: { ...doc, components: { ...(doc.components ?? {}), [componentId]: def }, root: replaceNode(doc.root, real[0], instance) },
+      instanceId,
+      componentId,
+    };
+  }
+
+  // Multiple: wrap at the bounding box within the nodes' common parent.
+  const parent = commonParent(doc.root, real);
+  const po = absoluteOrigin(doc.root, parent.id);
+  const items = real.map((id) => {
+    const n = findNode(doc.root, id)!;
+    const o = absoluteOrigin(doc.root, id);
+    return { node: n, x: o.x - po.x, y: o.y - po.y };
+  });
+  const minX = Math.min(...items.map((i) => i.x));
+  const minY = Math.min(...items.map((i) => i.y));
+  const maxX = Math.max(...items.map((i) => i.x + i.node.frame.w));
+  const maxY = Math.max(...items.map((i) => i.y + i.node.frame.h));
+  const w = Math.round(maxX - minX);
+  const h = Math.round(maxY - minY);
+  const name = "Component";
+  const compRoot: Node = {
+    id: `${componentId}_root`,
+    type: "Frame",
+    name,
+    frame: { x: 0, y: 0, w, h },
+    children: items.map((i) => ({ ...structuredClone(i.node), frame: { ...i.node.frame, x: Math.round(i.x - minX), y: Math.round(i.y - minY) } })),
+  };
+  const instance: Node = { id: instanceId, type: "Instance", name, componentId, frame: { x: Math.round(minX), y: Math.round(minY), w, h } };
+  let root = doc.root;
+  for (const id of real) root = removeNode(root, id);
+  root = addChild(root, parent.id, instance);
+  return { doc: { ...doc, components: { ...(doc.components ?? {}), [componentId]: { name, root: compRoot } }, root }, instanceId, componentId };
+}
+
+/** Place a fresh Instance of a component at `at`, sized to its natural size. */
+export function placeInstance(doc: Document, componentId: string, at: { x: number; y: number }): { node: Node } | null {
+  const def = doc.components?.[componentId];
+  if (!def) return null;
+  const node: Node = {
+    id: freshId("Instance"),
+    type: "Instance",
+    name: def.name,
+    componentId,
+    frame: { x: at.x, y: at.y, w: def.root.frame.w, h: def.root.frame.h },
+  };
+  return { node };
+}
+
+/**
+ * Move `id` under `newParentId`, converting its frame so it stays put on screen.
+ * Returns null if the move is invalid (into itself, a descendant, or unknown).
+ */
+export function reparentNode(root: Node, id: string, newParentId: string): Node | null {
+  if (id === root.id || id === newParentId) return null;
+  const node = findNode(root, id);
+  const newParent = findNode(root, newParentId);
+  if (!node || !newParent) return null;
+  if (findParent(root, id)?.id === newParentId) return null; // already there
+  if (findNode(node, newParentId)) return null; // would create a cycle
+  const an = absoluteOrigin(root, id);
+  const ap = absoluteOrigin(root, newParentId);
+  const moved: Node = { ...node, frame: { ...node.frame, x: Math.round(an.x - ap.x), y: Math.round(an.y - ap.y) } };
+  return addChild(removeNode(root, id), newParentId, moved);
 }
 
 /** Dissolve a group Frame, lifting its children into its parent. */
